@@ -49,4 +49,4 @@ Android向けの透明なYouTube/Twitchチャットオーバーレイ、ライ�
 ---
 
 ## その他の制作アプリ
-- [Live Streaming Camera](https://github.com/kongjjj/Live-Streaming-Camera)：繁體中国語で作成されたAndroid向けライブ配信アプリです。
+
