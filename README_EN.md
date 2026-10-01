@@ -1,0 +1,57 @@
+**English** | [繁體中文](README.md) | [日本語](README_JP.md) 
+<div align="center">
+<img src="pics/Logo.png" width="108" height="108" alt="Chat Overlay">
+
+<h1>Chat Overlay</h1>
+
+An Android Transparent Youtube/Twitch Chat viewer app for IRL streaming.
+<br><br>
+[![Twitch](https://img.shields.io/badge/Twitch-9146FF?style=for-the-badge&logo=twitch&logoColor=white)](https://twitch.tv)
+[![YouTube](https://img.shields.io/badge/YouTube-FF0000?style=for-the-badge&logo=youtube&logoColor=white)](https://youtube.com)
+[![Android](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/kongjjj/Chat-Overlay)
+![GitHub top language](https://img.shields.io/github/languages/top/masarujp2022/Chat-Overlay?&style=for-the-badge)
+[![Release](https://img.shields.io/github/release/masarujp2022/Chat-Overlay?color=0000FF&label=Release&style=for-the-badge)](https://github.com/masarujp2022/Chat-Overlay/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/masarujp2022/Chat-Overlay/total?label=Downloads&style=for-the-badge&color=lightgreen)](https://github.com/masarujp2022/Chat-Overlay/releases)
+
+
+</div>
+
+---
+
+## Features
+
+- ✔️ Display in Twitch and YouTube chatrooms.
+- ✔️ Text-to-Speech reading of chat messages, Chat hyperlinks can be clicked to pop up a browser.
+- ✔️ 3 language options: Traditional Chinese, English, and Japanese.
+- ✔️ Font size, shadow, line spacing, usernames, and emoji size can be adjusted individually.
+- ✔️ The transparent chat box can be freely moved and resized.
+- ✔️ The UI will automatically hide after 3 seconds, and only the comment section will remain visible. Clicking the left half of the comment section will bring back the UI.
+- ✔️ Twitch Stream info (Viewer Count & Stream Duration, Stream Category and Stream Title) Display.
+- ✔️ Display support for Twitch channel announcements, watch streaks, subscriptions, raids, and other special messages.
+
+![Chat-Overlay](pics/Screenshot_7EN.jpg)
+
+---
+
+## Usage
+![Chat-Overlay](pics/Screenshot_3E.jpg)
+- The screen view when used with live streaming software.Before UI Disappears.
+![Chat-Overlay](pics/Screenshot_4.jpg)
+- After UI Disappears.
+![Chat-Overlay](pics/Screenshot_5.jpg)
+- Other Screenshots
+![Chat-Overlay](pics/Screenshot_8.jpg)
+![Chat-Overlay](pics/Screenshot_9E.jpg)
+![Chat-Overlay](pics/Screenshot_10E.jpg)  
+---
+
+## Installation Method
+I will publish the latest .apk file in the [GitHub releases](https://github.com/masarujp2022/Chat-Overlay/releases) 
+
+You can open the GitHub releases page on your phone, download the .apk file, and install it.
+
+---
+
+## Other projects I have made
+- [Live Streaming Camera](https://github.com/kongjjj/Live-Streaming-Camera)：An Android live streaming app built using Chinese language.
+
