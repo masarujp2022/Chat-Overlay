@@ -1,4 +1,4 @@
-**English** | [繁體中文](README.md) | [日本語](README_JP.md) 
+**English** | [繁體中文](README_ZH.md) | [日本語](README.md) 
 <div align="center">
 <img src="pics/Logo.png" width="108" height="108" alt="Chat Overlay">
 
