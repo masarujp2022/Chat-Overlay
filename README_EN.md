@@ -52,5 +52,5 @@ You can open the GitHub releases page on your phone, download the .apk file, and
 ---
 
 ## Other projects I have made
-- [Live Streaming Camera](https://github.com/kongjjj/Live-Streaming-Camera)：An Android live streaming app built using Chinese language.
+
 
