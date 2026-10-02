@@ -1,6 +1,6 @@
 **繁體中文** | [English](README_EN.md) | [日本語](README.md) 
 <div align="center">
-<img src="pics/Logo.jpg" width="108" height="108" alt="Chat Overlay">
+<img src="pics/Logo.jpg" width="150" height="150" alt="Chat Overlay">
 
 <h1>Chat Overlay</h1>
 
