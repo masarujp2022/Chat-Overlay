@@ -38,7 +38,7 @@ Android向けの透明なYouTube/Twitchチャットオーバーレイ、ライ�
 ![Chat-Overlay](pics/Screenshot_4.jpg)
 - UI非表示後。
 ![Chat-Overlay](pics/Screenshot_5.jpg)
-- 其他截圖
+- その他のスクリーンショット
 ![Chat-Overlay](pics/Screenshot_8C.jpg)
 ![Chat-Overlay](pics/Screenshot_9.jpg)  
 ![Chat-Overlay](pics/Screenshot_10.jpg)
