@@ -43,7 +43,8 @@ Android向けの透明なYouTube/Twitchチャットオーバーレイ、ライ�
 ![Chat-Overlay](pics/Screenshot_9.jpg)  
 ![Chat-Overlay](pics/Screenshot_10.jpg)
 ![Chat-Overlay](pics/Screenshot_11.jpg)
-![Chat-Overlay](pics/Screenshot_12.jpg) 
+![Chat-Overlay](pics/Screenshot_12.jpg)
+![Chat-Overlay](pics/Screenshot_13.jpg) 
 ---
 
 ## インストール方法
