@@ -46,7 +46,8 @@
 ![Chat-Overlay](pics/Screenshot_10.jpg)
 ![Chat-Overlay](pics/Screenshot_11.jpg)
 ![Chat-Overlay](pics/Screenshot_12.jpg)
-![Chat-Overlay](pics/Screenshot_13.jpg) 
+![Chat-Overlay](pics/Screenshot_13.jpg)
+![Chat-Overlay](pics/Screenshot_14.jpg) 
 ---
 
 ## 安裝方法
