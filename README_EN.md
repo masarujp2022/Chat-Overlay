@@ -27,8 +27,8 @@ An Android Transparent Youtube/Twitch Chat viewer app for IRL streaming.
 - ✔️ The UI will automatically hide after 3 seconds, and only the comment section will remain visible. Clicking the left half of the comment section will bring back the UI.
 - ✔️ Twitch Stream info (Viewer Count & Stream Duration, Stream Category and Stream Title) Display.
 - ✔️ Display support for Twitch channel announcements, watch streaks, subscriptions, raids, and other special messages.
-- ✔️ Added notification display for YouTube Super Chats, Super Stickers, and Channel Memberships.
-- ✔️ Added YouTube viewer count display.
+- ✔️ Notification display for YouTube Super Chats, Super Stickers, and Channel Memberships.
+- ✔️ YouTube viewer count display.
   
 ![Chat-Overlay](pics/Screenshot_7EN.jpg)
 
