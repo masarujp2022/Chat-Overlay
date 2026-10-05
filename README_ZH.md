@@ -28,7 +28,8 @@
 - ✔️ Twitch 直播資訊 (觀看人數、直播時長、直播中的Category 和 Stream Title) 顯示。
 - ✔️ Twitch 頻道公告、連續觀看紀錄、訂閱、揪團及其他特殊訊息顯示。
 - ✔️ Youtube Superchat、Super Sticker 通知顯示。
-
+- ✔️ Youtube 觀看人數顯示。
+  
 ![Chat-Overlay](pics/Screenshot_7C.jpg)
 
 ---
