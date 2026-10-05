@@ -28,7 +28,7 @@ Android向けの透明なYouTube/Twitchチャットオーバーレイ、ライ�
 - ✔️ Twitch 視聴者数・配信時間表示。
 - ✔️ Twitch チャンネルアナウンス、視聴ストリーク、サブスク、レイド、その他の特殊メッセージの表示。
 - ✔️ YouTube の Super Chat、Super Sticker、メンバーシップ加入の通知表示を追加。
-- ✔️ YouTube の視聴者数表示を追加。
+- ✔️ YouTube の視聴者数表示。
   
 ![Chat-Overlay](pics/Screenshot_7J.jpg)
 
