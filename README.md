@@ -4,7 +4,7 @@
 
 <h1>Chat Overlay</h1>
 
-Android向けの透明なYouTube/Twitchチャットオーバーレイ、ライブ配信で使用するもの。
+ログイン不要 Android向けの透明なYouTube/Twitchチャットオーバーレイ、ライブ配信で使用するもの。
 <br><br>
 [![Twitch](https://img.shields.io/badge/Twitch-9146FF?style=for-the-badge&logo=twitch&logoColor=white)](https://twitch.tv)
 [![YouTube](https://img.shields.io/badge/YouTube-FF0000?style=for-the-badge&logo=youtube&logoColor=white)](https://youtube.com)
