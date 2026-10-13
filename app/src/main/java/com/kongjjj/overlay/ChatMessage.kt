@@ -31,7 +31,4 @@ data class StreamInfo(
     val category: String? = null
 )
 
-data class StreamInfo(
-    val viewers: Int,
-    val createdAt: Long?
-)
+
