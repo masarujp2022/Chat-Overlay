@@ -1,0 +1,32 @@
+package com.kongjjj.overlay
+
+data class ChatMessage(
+    val id: String,
+    val username: String,
+    val login: String? = null,
+    val message: String,
+    val color: String? = null,                  // hex like "#FF4500" or null
+    val emotesTag: String? = null,              // raw IRC emotes tag e.g. "25:0-4,6-10/1902:12-17"
+    val badgeTags: List<String> = emptyList(),  // e.g. ["broadcaster/1", "subscriber/0", "premium/1"] or full URLs
+    val youtubeEmotes: Map<String, String> = emptyMap(), // shortcut -> url
+    val timestamp: Long? = null,
+    val platform: String = "twitch",
+    val isAction: Boolean = false,
+    val systemMessageKey: String? = null,       // Key for localization lookup
+    val rawSystemMessage: String? = null,       // Raw system message from platform
+    val isAnnouncement: Boolean = false,
+    val announcementColor: String? = null,
+    val bits: Int = 0,
+    val twitchMsgId: String? = null,
+    val msgParams: Map<String, String> = emptyMap(),
+    val isSuperChat: Boolean = false,
+    val isMembership: Boolean = false
+)
+
+data class StreamInfo(
+    val viewers: Int,
+    val createdAt: Long?,
+    val userId: String? = null,
+    val title: String? = null,
+    val category: String? = null
+)

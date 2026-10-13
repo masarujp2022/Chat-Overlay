@@ -1,0 +1,18 @@
+package com.kongjjj.overlay
+
+const val MAX_CHAT_MESSAGES = 100
+const val DEFAULT_FONT_SIZE = 14f
+const val DEFAULT_LINE_SPACING = 4f
+const val DEFAULT_EMOTE_SIZE = 24f
+const val DEFAULT_USERNAME_SIZE = 14f
+const val DEFAULT_TEXT_SHADOW = true
+const val DEFAULT_SHADOW_RADIUS = 4f
+const val DEFAULT_SHADOW_OFFSET_X = 2f
+const val DEFAULT_SHADOW_OFFSET_Y = 2f
+const val DEFAULT_SHOW_STREAM_INFO = true
+const val DEFAULT_SHOW_STREAM_TITLE = true
+const val DEFAULT_KEEP_SCREEN_ON = true
+const val DEFAULT_OPEN_LINKS_IN_BROWSER = true
+const val DEFAULT_NORMAL_MESSAGE_COLOR = "#FFFFFF"
+const val DEFAULT_TWITCH_NOTICE_COLOR = "#FF8C00"
+const val DEFAULT_YOUTUBE_NOTICE_COLOR = "#00E5FF"

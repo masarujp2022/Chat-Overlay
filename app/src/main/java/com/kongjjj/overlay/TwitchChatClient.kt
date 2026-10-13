@@ -1,0 +1,332 @@
+package com.kongjjj.overlay
+
+import android.util.Log
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.Response
+import okhttp3.WebSocket
+import okhttp3.WebSocketListener
+import org.json.JSONObject
+import kotlin.time.Duration.Companion.seconds
+
+class TwitchChatClient {
+    private val tag = "TwitchChatClient"
+    private val http = OkHttpClient()
+    private var socket: WebSocket? = null
+
+    private val _messages = MutableStateFlow<List<ChatMessage>>(emptyList())
+    val messages: StateFlow<List<ChatMessage>> = _messages
+
+    private val _newMessages = MutableSharedFlow<ChatMessage>()
+    val newMessages: SharedFlow<ChatMessage> = _newMessages
+
+    private val _connected = MutableStateFlow(value = false)
+    val connected: StateFlow<Boolean> = _connected
+
+    private var currentChannel: String? = null
+    private var lastReceivedTimestamp: Long? = null
+    private var shouldBeConnected = false
+    private val scope = CoroutineScope(Dispatchers.IO)
+
+    var onReconnect: (() -> Unit)? = null
+
+    fun connect(channel: String) {
+        val normalizedChannel = channel.lowercase().trim()
+        if (normalizedChannel == currentChannel && _connected.value) return
+
+        shouldBeConnected = true
+        if (normalizedChannel != currentChannel) {
+            _messages.value = emptyList()
+            lastReceivedTimestamp = null
+        }
+        
+        disconnectInternal()
+        currentChannel = normalizedChannel
+
+        val nick = "justinfan${(10000..99999).random()}"
+        val req = Request.Builder().url("wss://irc-ws.chat.twitch.tv:443").build()
+
+        socket = http.newWebSocket(
+            req,
+            object : WebSocketListener() {
+                override fun onOpen(webSocket: WebSocket, response: Response) {
+                    webSocket.send("CAP REQ :twitch.tv/tags twitch.tv/commands")
+                    webSocket.send("NICK $nick")
+                    webSocket.send("JOIN #$normalizedChannel")
+                    _connected.value = true
+                    
+                    // Fetch recent messages after connected
+                    scope.launch {
+                        val recent = fetchRecentMessages(normalizedChannel)
+                        if (recent.isNotEmpty()) {
+                            // Merge with any real-time messages that arrived while fetching history
+                            val current = _messages.value
+                            val existingIds = current.map { it.id }.toSet()
+                            val filteredRecent = recent.filter { it.id !in existingIds }
+                            _messages.value = (filteredRecent + current).takeLast(MAX_CHAT_MESSAGES)
+                        }
+                    }
+                }
+
+                override fun onMessage(webSocket: WebSocket, text: String) {
+                    text.lines().forEach { line ->
+                        val trimmed = line.trim('\r', '\n')
+                        if (trimmed.isNotEmpty()) handleLine(trimmed)
+                    }
+                }
+
+                override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                    _connected.value = false
+                    if (shouldBeConnected) {
+                        reconnect()
+                    }
+                }
+
+                override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                    _connected.value = false
+                    if (shouldBeConnected) {
+                        reconnect()
+                    }
+                }
+            },
+        )
+    }
+
+    private fun reconnect() {
+        scope.launch {
+            delay(5.seconds)
+            currentChannel?.let { 
+                if (shouldBeConnected) {
+                    onReconnect?.invoke()
+                    connect(it)
+                }
+            }
+        }
+    }
+
+    private fun handleLine(line: String) {
+        if (line.isBlank()) return
+
+        // Keep-alive
+        if (line.startsWith("PING")) {
+            socket?.send("PONG :tmi.twitch.tv")
+            return
+        }
+
+        if (!line.contains("PRIVMSG") && !line.contains("USERNOTICE")) return
+
+        val msg = parseTwitchIrcLine(line)
+        if (msg != null) {
+            _messages.value = (_messages.value + msg).takeLast(MAX_CHAT_MESSAGES)
+            scope.launch { _newMessages.emit(msg) }
+            msg.timestamp?.let { ts ->
+                val lastTs = lastReceivedTimestamp
+                if (lastTs == null || ts > lastTs) {
+                    lastReceivedTimestamp = ts
+                }
+            }
+        }
+    }
+
+    internal fun parseTwitchIrcLine(line: String): ChatMessage? {
+        try {
+            var rest = line
+            var color: String? = null
+            var displayName: String? = null
+            var loginTag: String? = null
+            var emotesTag: String? = null
+            var badgesStr: String? = null
+            var msgId: String? = null
+            var serverTimestamp: Long? = null
+            var twitchMsgId: String? = null
+            var systemMsg: String? = null
+            var msgParamColor: String? = null
+            var bits = 0
+            val msgParams = mutableMapOf<String, String>()
+
+            // 1. Strip IRCv3 tags: @key=value;key=value ... <space> rest-of-line
+            if (rest.startsWith("@")) {
+                val spaceIdx = rest.indexOf(' ')
+                if (spaceIdx < 0) return null
+                val tagsStr = rest.substring(1, spaceIdx)
+                rest = rest.substring(spaceIdx + 1).trimStart()
+
+                tagsStr.split(";").forEach { tag ->
+                    val eqIdx = tag.indexOf('=')
+                    if (eqIdx < 0) return@forEach
+                    val key = tag.substring(0, eqIdx)
+                    val value = tag.substring(eqIdx + 1)
+                    when (key) {
+                        "color"           -> if (value.isNotEmpty()) color = value
+                        "display-name"    -> if (value.isNotEmpty()) displayName = value
+                        "login"           -> if (value.isNotEmpty()) loginTag = value
+                        "emotes"          -> if (value.isNotEmpty()) emotesTag = value
+                        "badges"          -> if (value.isNotEmpty()) badgesStr = value
+                        "id"              -> if (value.isNotEmpty()) msgId = value
+                        "tmi-sent-ts"     -> serverTimestamp = value.toLongOrNull()
+                        "msg-id"          -> if (value.isNotEmpty()) twitchMsgId = value
+                        "system-msg"      -> if (value.isNotEmpty()) {
+                            systemMsg = value
+                                .replace("\\s", " ")
+                                .replace("\\:", ";")
+                                .replace("\\\\", "\\")
+                                .replace(" (tmi.twitch.tv)", "")
+                                .replace("(tmi.twitch.tv)", "")
+                                .replace("  ", " ")
+                                .trim()
+                        }
+                        "msg-param-color" -> if (value.isNotEmpty()) msgParamColor = value
+                        "bits"            -> bits = value.toIntOrNull() ?: 0
+                    }
+                    if (key.startsWith("msg-param-")) {
+                        msgParams[key] = value
+                    }
+                }
+            }
+
+            // 2. Extract Prefix: :nick!user@host <space> rest
+            var prefix: String? = null
+            if (rest.startsWith(":")) {
+                val spaceIdx = rest.indexOf(' ')
+                if (spaceIdx > 0) {
+                    prefix = rest.substring(1, spaceIdx)
+                    rest = rest.substring(spaceIdx + 1).trimStart()
+                }
+            }
+
+            val prefixLogin = prefix?.substringBefore("!")
+            val rawLogin = loginTag ?: (if (prefixLogin != "tmi.twitch.tv") prefixLogin else null)
+            val login = rawLogin?.replace(" (tmi.twitch.tv)", "")?.replace("(tmi.twitch.tv)", "")?.trim()
+            val rawDisplayName = displayName?.replace(" (tmi.twitch.tv)", "")?.replace("(tmi.twitch.tv)", "")?.trim()
+            val username = (if (!rawDisplayName.isNullOrEmpty()) rawDisplayName else login)?.takeIf { it != "tmi.twitch.tv" } ?: login ?: return null
+
+            // 3. Extract Command and Parameters
+            val firstSpace = rest.indexOf(' ')
+            if (firstSpace < 0) return null
+            val command = rest.substring(0, firstSpace)
+            if (command != "PRIVMSG" && command != "USERNOTICE") return null
+
+            val paramsPart = rest.substring(firstSpace + 1).trimStart()
+            // paramsPart looks like: #channel :message text OR #channel message
+
+            // 4. Extract Message (the trailing parameter)
+            var message = when {
+                paramsPart.contains(" :") -> {
+                    paramsPart.substring(paramsPart.indexOf(" :") + 2)
+                }
+                paramsPart.startsWith(":") -> {
+                    paramsPart.substring(1)
+                }
+                paramsPart.indexOf(' ') >= 0 -> {
+                    paramsPart.substring(paramsPart.indexOf(' ') + 1)
+                }
+                else -> "" // User message is optional in USERNOTICE
+            }
+
+            if (message.isEmpty() && systemMsg.isNullOrEmpty()) return null
+
+            var isAction = false
+            if (message.startsWith("\u0001ACTION ") && message.endsWith("\u0001")) {
+                message = message.substring(8, message.length - 1)
+                isAction = true
+            } else if (message.startsWith("ACTION ")) {
+                message = message.substring(7)
+                isAction = true
+            }
+
+            val badges = badgesStr?.split(",")?.filter { it.isNotEmpty() } ?: emptyList()
+
+            return ChatMessage(
+                id         = msgId ?: java.util.UUID.randomUUID().toString(),
+                username   = username,
+                login      = login,
+                message    = message,
+                color      = color,
+                emotesTag  = emotesTag,
+                badgeTags  = badges,
+                timestamp  = serverTimestamp,
+                platform   = "twitch",
+                isAction   = isAction,
+                rawSystemMessage = systemMsg,
+                isAnnouncement = (command == "USERNOTICE" || twitchMsgId == "announcement" || bits > 0),
+                announcementColor = msgParamColor,
+                bits = bits,
+                twitchMsgId = twitchMsgId,
+                msgParams = msgParams
+            )
+        } catch (_: Exception) {
+            return null
+        }
+    }
+
+    private suspend fun fetchRecentMessages(channel: String): List<ChatMessage> = withContext(Dispatchers.IO) {
+        var url = "https://recent-messages.robotty.de/api/v2/recent-messages/$channel?limit=200&data=json"
+        lastReceivedTimestamp?.let { ts ->
+            url += "&after=$ts"
+        }
+        val request = Request.Builder().url(url).build()
+        try {
+            val response = http.newCall(request).execute()
+            if (!response.isSuccessful) {
+                Log.e(tag, "Recent messages API 請求失敗: ${response.code}")
+                return@withContext emptyList()
+            }
+            val jsonStr = response.body.string()
+            if (jsonStr.isBlank()) return@withContext emptyList()
+
+            val json = JSONObject(jsonStr)
+            val messagesArray = json.optJSONArray("messages") ?: return@withContext emptyList()
+
+            val recentList = mutableListOf<ChatMessage>()
+            var maxTimestamp: Long? = lastReceivedTimestamp
+            for (i in 0 until messagesArray.length()) {
+                val rawMessage = messagesArray.optString(i)
+                if (rawMessage.isBlank()) continue
+
+                val msg = parseTwitchIrcLine(rawMessage)
+                if (msg != null) {
+                    recentList.add(msg)
+                    msg.timestamp?.let { ts ->
+                        val currentMax = maxTimestamp
+                        if (currentMax == null || ts > currentMax) {
+                            maxTimestamp = ts
+                        }
+                    }
+                }
+            }
+            if ((maxTimestamp != null) && (maxTimestamp != lastReceivedTimestamp)) {
+                lastReceivedTimestamp = maxTimestamp
+            }
+            recentList
+        } catch (e: Exception) {
+            Log.e(tag, "獲取最近訊息失敗", e)
+            emptyList()
+        }
+    }
+
+    fun clearMessages() {
+        _messages.value = emptyList()
+        lastReceivedTimestamp = null
+        currentChannel = null
+    }
+
+    fun disconnect() {
+        shouldBeConnected = false
+        disconnectInternal()
+    }
+
+    private fun disconnectInternal() {
+        socket?.close(1000, null)
+        socket = null
+        _connected.value = false
+    }
+}

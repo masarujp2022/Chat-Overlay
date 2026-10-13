@@ -1,0 +1,801 @@
+package com.kongjjj.overlay
+
+import android.widget.Toast
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.core.graphics.toColorInt
+import kotlin.math.roundToInt
+
+@Composable
+fun SettingsDialog(
+    twitchChannel: String,
+    youtubeChannelId: String,
+    chatFontSize: Float,
+    chatLineSpacing: Float,
+    chatEmoteSize: Float,
+    chatUsernameSize: Float,
+    animatedEmotes: Boolean,
+    enable7tv: Boolean,
+    enableBttv: Boolean,
+    enableFfz: Boolean,
+    backgroundColor: String,
+    appLanguage: String,
+    showTimestamp: Boolean,
+    showStreamInfo: Boolean,
+    showStreamTitle: Boolean = true,
+    openLinksInBrowser: Boolean = true,
+    keepScreenOn: Boolean,
+    textShadow: Boolean,
+    shadowRadius: Float,
+    shadowOffsetX: Float,
+    shadowOffsetY: Float,
+    normalMessageColor: String = DEFAULT_NORMAL_MESSAGE_COLOR,
+    twitchNoticeColor: String = DEFAULT_TWITCH_NOTICE_COLOR,
+    youtubeNoticeColor: String = DEFAULT_YOUTUBE_NOTICE_COLOR,
+    ttsEnabled: Boolean,
+    ttsLanguage: String,
+    ttsIgnoreSender: Boolean,
+    ttsIgnoreEmoji: Boolean,
+    ttsIgnoreLinks: Boolean,
+    ttsOnlySubOrCheer: Boolean,
+    onSaveChannel: (String) -> Unit,
+    onSaveYoutubeChannelId: (String) -> Unit,
+    onFontSizeChange: (Float) -> Unit,
+    onLineSpacingChange: (Float) -> Unit,
+    onEmoteSizeChange: (Float) -> Unit,
+    onUsernameSizeChange: (Float) -> Unit,
+    onAnimatedEmotesChange: (Boolean) -> Unit,
+    onEnable7tvChange: (Boolean) -> Unit,
+    onEnableBttvChange: (Boolean) -> Unit,
+    onEnableFfzChange: (Boolean) -> Unit,
+    onBackgroundColorChange: (String) -> Unit,
+    onNormalMessageColorChange: (String) -> Unit = {},
+    onTwitchNoticeColorChange: (String) -> Unit = {},
+    onYoutubeNoticeColorChange: (String) -> Unit = {},
+    onShowTimestampChange: (Boolean) -> Unit,
+    onShowStreamInfoChange: (Boolean) -> Unit,
+    onShowStreamTitleChange: (Boolean) -> Unit = {},
+    onOpenLinksInBrowserChange: (Boolean) -> Unit = {},
+    onKeepScreenOnChange: (Boolean) -> Unit,
+    onTextShadowChange: (Boolean) -> Unit,
+    onShadowRadiusChange: (Float) -> Unit,
+    onShadowOffsetXChange: (Float) -> Unit,
+    onShadowOffsetYChange: (Float) -> Unit,
+    onTtsEnabledChange: (Boolean) -> Unit,
+    onTtsLanguageChange: (String) -> Unit,
+    onTtsIgnoreSenderChange: (Boolean) -> Unit,
+    onTtsIgnoreEmojiChange: (Boolean) -> Unit,
+    onTtsIgnoreLinksChange: (Boolean) -> Unit,
+    onTtsOnlySubOrCheerChange: (Boolean) -> Unit,
+    onDismiss: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.98f)
+                .clip(RoundedCornerShape(16.dp)),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 6.dp
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                // Compact Header
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = getLabel("Settings", appLanguage),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = getLabel("Close", appLanguage))
+                    }
+                }
+                
+                HorizontalDivider()
+
+                // Content
+                Box(modifier = Modifier.weight(1f).padding(horizontal = 16.dp)) {
+                    SettingsContent(
+                        twitchChannel = twitchChannel,
+                        youtubeChannelId = youtubeChannelId,
+                        chatFontSize = chatFontSize,
+                        chatLineSpacing = chatLineSpacing,
+                        chatEmoteSize = chatEmoteSize,
+                        chatUsernameSize = chatUsernameSize,
+                        animatedEmotes = animatedEmotes,
+                        enable7tv = enable7tv,
+                        enableBttv = enableBttv,
+                        enableFfz = enableFfz,
+                        backgroundColor = backgroundColor,
+                        appLanguage = appLanguage,
+                        showTimestamp = showTimestamp,
+                        showStreamInfo = showStreamInfo,
+                        showStreamTitle = showStreamTitle,
+                        openLinksInBrowser = openLinksInBrowser,
+                        keepScreenOn = keepScreenOn,
+                        textShadow = textShadow,
+                        shadowRadius = shadowRadius,
+                        shadowOffsetX = shadowOffsetX,
+                        shadowOffsetY = shadowOffsetY,
+                        normalMessageColor = normalMessageColor,
+                        twitchNoticeColor = twitchNoticeColor,
+                        youtubeNoticeColor = youtubeNoticeColor,
+                        ttsEnabled = ttsEnabled,
+                        ttsLanguage = ttsLanguage,
+                        ttsIgnoreSender = ttsIgnoreSender,
+                        ttsIgnoreEmoji = ttsIgnoreEmoji,
+                        ttsIgnoreLinks = ttsIgnoreLinks,
+                        ttsOnlySubOrCheer = ttsOnlySubOrCheer,
+                        onSaveChannel = onSaveChannel,
+                        onSaveYoutubeChannelId = onSaveYoutubeChannelId,
+                        onFontSizeChange = onFontSizeChange,
+                        onLineSpacingChange = onLineSpacingChange,
+                        onEmoteSizeChange = onEmoteSizeChange,
+                        onUsernameSizeChange = onUsernameSizeChange,
+                        onAnimatedEmotesChange = onAnimatedEmotesChange,
+                        onEnable7tvChange = onEnable7tvChange,
+                        onEnableBttvChange = onEnableBttvChange,
+                        onEnableFfzChange = onEnableFfzChange,
+                        onBackgroundColorChange = onBackgroundColorChange,
+                        onNormalMessageColorChange = onNormalMessageColorChange,
+                        onTwitchNoticeColorChange = onTwitchNoticeColorChange,
+                        onYoutubeNoticeColorChange = onYoutubeNoticeColorChange,
+                        onShowTimestampChange = onShowTimestampChange,
+                        onShowStreamInfoChange = onShowStreamInfoChange,
+                        onShowStreamTitleChange = onShowStreamTitleChange,
+                        onOpenLinksInBrowserChange = onOpenLinksInBrowserChange,
+                        onKeepScreenOnChange = onKeepScreenOnChange,
+                        onTextShadowChange = onTextShadowChange,
+                        onShadowRadiusChange = onShadowRadiusChange,
+                        onShadowOffsetXChange = onShadowOffsetXChange,
+                        onShadowOffsetYChange = onShadowOffsetYChange,
+                        onTtsEnabledChange = onTtsEnabledChange,
+                        onTtsLanguageChange = onTtsLanguageChange,
+                        onTtsIgnoreSenderChange = onTtsIgnoreSenderChange,
+                        onTtsIgnoreEmojiChange = onTtsIgnoreEmojiChange,
+                        onTtsIgnoreLinksChange = onTtsIgnoreLinksChange,
+                        onTtsOnlySubOrCheerChange = onTtsOnlySubOrCheerChange,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SettingsContent(
+    twitchChannel: String,
+    youtubeChannelId: String,
+    chatFontSize: Float,
+    chatLineSpacing: Float,
+    chatEmoteSize: Float,
+    chatUsernameSize: Float,
+    animatedEmotes: Boolean,
+    enable7tv: Boolean,
+    enableBttv: Boolean,
+    enableFfz: Boolean,
+    backgroundColor: String,
+    appLanguage: String,
+    showTimestamp: Boolean,
+    showStreamInfo: Boolean,
+    showStreamTitle: Boolean = true,
+    openLinksInBrowser: Boolean,
+    keepScreenOn: Boolean,
+    textShadow: Boolean,
+    shadowRadius: Float,
+    shadowOffsetX: Float,
+    shadowOffsetY: Float,
+    normalMessageColor: String = DEFAULT_NORMAL_MESSAGE_COLOR,
+    twitchNoticeColor: String = DEFAULT_TWITCH_NOTICE_COLOR,
+    youtubeNoticeColor: String = DEFAULT_YOUTUBE_NOTICE_COLOR,
+    ttsEnabled: Boolean,
+    ttsLanguage: String,
+    ttsIgnoreSender: Boolean,
+    ttsIgnoreEmoji: Boolean,
+    ttsIgnoreLinks: Boolean,
+    ttsOnlySubOrCheer: Boolean,
+    onSaveChannel: (String) -> Unit,
+    onSaveYoutubeChannelId: (String) -> Unit,
+    onFontSizeChange: (Float) -> Unit,
+    onLineSpacingChange: (Float) -> Unit,
+    onEmoteSizeChange: (Float) -> Unit,
+    onUsernameSizeChange: (Float) -> Unit,
+    onAnimatedEmotesChange: (Boolean) -> Unit,
+    onEnable7tvChange: (Boolean) -> Unit,
+    onEnableBttvChange: (Boolean) -> Unit,
+    onEnableFfzChange: (Boolean) -> Unit,
+    onBackgroundColorChange: (String) -> Unit,
+    onNormalMessageColorChange: (String) -> Unit = {},
+    onTwitchNoticeColorChange: (String) -> Unit = {},
+    onYoutubeNoticeColorChange: (String) -> Unit = {},
+    onShowTimestampChange: (Boolean) -> Unit,
+    onShowStreamInfoChange: (Boolean) -> Unit,
+    onShowStreamTitleChange: (Boolean) -> Unit = {},
+    onOpenLinksInBrowserChange: (Boolean) -> Unit,
+    onKeepScreenOnChange: (Boolean) -> Unit,
+    onTextShadowChange: (Boolean) -> Unit,
+    onShadowRadiusChange: (Float) -> Unit,
+    onShadowOffsetXChange: (Float) -> Unit,
+    onShadowOffsetYChange: (Float) -> Unit,
+    onTtsEnabledChange: (Boolean) -> Unit,
+    onTtsLanguageChange: (String) -> Unit,
+    onTtsIgnoreSenderChange: (Boolean) -> Unit,
+    onTtsIgnoreEmojiChange: (Boolean) -> Unit,
+    onTtsIgnoreLinksChange: (Boolean) -> Unit,
+    onTtsOnlySubOrCheerChange: (Boolean) -> Unit,
+) {
+    var channelInput by remember(twitchChannel) { mutableStateOf(twitchChannel) }
+    var youtubeInput by remember(youtubeChannelId) { mutableStateOf(youtubeChannelId) }
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val context = LocalContext.current
+
+    Column(
+        modifier = Modifier
+            .verticalScroll(rememberScrollState())
+            .padding(vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Twitch channel
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(getLabel("Twitch Channel", appLanguage), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(
+                    value = channelInput,
+                    onValueChange = { channelInput = it },
+                    placeholder = { Text(getLabel("Channel Name", appLanguage)) },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(
+                        onDone = {
+                            val trimmed = channelInput.trim().lowercase()
+                            onSaveChannel(trimmed)
+                            keyboardController?.hide()
+                            Toast.makeText(context, getLabel("Saved", appLanguage), Toast.LENGTH_SHORT).show()
+                        },
+                    )
+                )
+                FilledTonalButton(
+                    onClick = {
+                        val trimmed = channelInput.trim().lowercase()
+                        onSaveChannel(trimmed)
+                        keyboardController?.hide()
+                        Toast.makeText(context, getLabel("Saved", appLanguage), Toast.LENGTH_SHORT).show()
+                    }
+                ) { Text(getLabel("Save", appLanguage)) }
+            }
+        }
+
+        // YouTube Channel ID
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(getLabel("YouTube Channel ID", appLanguage), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(
+                    value = youtubeInput,
+                    onValueChange = { youtubeInput = it },
+                    placeholder = { Text("Channel ID (UC...)") },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(
+                        onDone = {
+                            val trimmed = youtubeInput.trim()
+                            onSaveYoutubeChannelId(trimmed)
+                            keyboardController?.hide()
+                            Toast.makeText(context, getLabel("Saved", appLanguage), Toast.LENGTH_SHORT).show()
+                        },
+                    )
+                )
+                FilledTonalButton(
+                    onClick = {
+                        val trimmed = youtubeInput.trim()
+                        onSaveYoutubeChannelId(trimmed)
+                        keyboardController?.hide()
+                        Toast.makeText(context, getLabel("Saved", appLanguage), Toast.LENGTH_SHORT).show()
+                    }
+                ) { Text(getLabel("Save", appLanguage)) }
+            }
+        }
+
+        HorizontalDivider()
+
+        // Background Color
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(getLabel("Background Color", appLanguage), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            @OptIn(ExperimentalLayoutApi::class)
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.clickable { onBackgroundColorChange("transparent") }
+                ) {
+                    RadioButton(selected = backgroundColor == "transparent", onClick = { onBackgroundColorChange("transparent") })
+                    Spacer(modifier = Modifier.width(2.dp))
+                    Text(getLabel("Transparent", appLanguage))
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.clickable { onBackgroundColorChange("black") }
+                ) {
+                    RadioButton(selected = backgroundColor == "black", onClick = { onBackgroundColorChange("black") })
+                    Spacer(modifier = Modifier.width(2.dp))
+                    Text(getLabel("Black", appLanguage))
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.clickable { onBackgroundColorChange("white") }
+                ) {
+                    RadioButton(selected = backgroundColor == "white", onClick = { onBackgroundColorChange("white") })
+                    Spacer(modifier = Modifier.width(2.dp))
+                    Text(getLabel("White", appLanguage))
+                }
+            }
+        }
+
+        HorizontalDivider()
+
+        // Show Timestamp
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text(getLabel("Show Timestamp", appLanguage), style = MaterialTheme.typography.bodyMedium)
+            Switch(checked = showTimestamp, onCheckedChange = onShowTimestampChange)
+        }
+
+        // Show Stream Info
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text(getLabel("Show Stream Info", appLanguage), style = MaterialTheme.typography.bodyMedium)
+            Switch(checked = showStreamInfo, onCheckedChange = onShowStreamInfoChange)
+        }
+
+        // Show Stream Title & Category
+        if (showStreamInfo) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text(getLabel("Show Stream Title & Category", appLanguage), style = MaterialTheme.typography.bodyMedium)
+                Switch(checked = showStreamTitle, onCheckedChange = onShowStreamTitleChange)
+            }
+        }
+
+        // Open Links in Browser
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text(getLabel("Open Links in Browser", appLanguage), style = MaterialTheme.typography.bodyMedium)
+            Switch(checked = openLinksInBrowser, onCheckedChange = onOpenLinksInBrowserChange)
+        }
+
+        // Keep Screen On
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text(getLabel("Keep Screen On", appLanguage), style = MaterialTheme.typography.bodyMedium)
+            Switch(checked = keepScreenOn, onCheckedChange = onKeepScreenOnChange)
+        }
+
+        HorizontalDivider()
+
+        // Text Colors Section
+        Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                text = getLabel("Text Colors", appLanguage),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            ColorSettingItem(
+                title = getLabel("Normal Message Color", appLanguage),
+                selectedColorHex = normalMessageColor,
+                onColorSelected = onNormalMessageColorChange
+            )
+
+            ColorSettingItem(
+                title = getLabel("Twitch Notice Color", appLanguage),
+                selectedColorHex = twitchNoticeColor,
+                onColorSelected = onTwitchNoticeColorChange
+            )
+
+            ColorSettingItem(
+                title = getLabel("YouTube Notice Color", appLanguage),
+                selectedColorHex = youtubeNoticeColor,
+                onColorSelected = onYoutubeNoticeColorChange
+            )
+        }
+
+        HorizontalDivider()
+
+        // Text Shadow
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text(getLabel("Text Shadow", appLanguage), style = MaterialTheme.typography.bodyMedium)
+                Switch(checked = textShadow, onCheckedChange = onTextShadowChange)
+            }
+
+            if (textShadow) {
+                Column {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text(getLabel("Shadow Radius", appLanguage), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("${shadowRadius.toInt()} px", style = MaterialTheme.typography.labelMedium)
+                    }
+                    Slider(value = shadowRadius, onValueChange = onShadowRadiusChange, valueRange = 0f..20f, steps = 20, modifier = Modifier.fillMaxWidth())
+                }
+
+                Column {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text(getLabel("Shadow Offset X", appLanguage), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("${shadowOffsetX.toInt()} px", style = MaterialTheme.typography.labelMedium)
+                    }
+                    Slider(value = shadowOffsetX, onValueChange = onShadowOffsetXChange, valueRange = -20f..20f, steps = 40, modifier = Modifier.fillMaxWidth())
+                }
+
+                Column {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text(getLabel("Shadow Offset Y", appLanguage), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("${shadowOffsetY.toInt()} px", style = MaterialTheme.typography.labelMedium)
+                    }
+                    Slider(value = shadowOffsetY, onValueChange = onShadowOffsetYChange, valueRange = -20f..20f, steps = 40, modifier = Modifier.fillMaxWidth())
+                }
+            }
+        }
+
+        HorizontalDivider()
+
+        // TTS Settings
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(getLabel("TTS", appLanguage), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text(getLabel("Enable TTS", appLanguage), style = MaterialTheme.typography.bodyMedium)
+                Switch(checked = ttsEnabled, onCheckedChange = onTtsEnabledChange)
+            }
+
+            if (ttsEnabled) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text(getLabel("TTS Language", appLanguage), style = MaterialTheme.typography.bodyMedium)
+                    
+                    var expanded by remember { mutableStateOf(value = false) }
+                    val languages = listOf(
+                        "zh-HK" to "廣東話 (香港)",
+                        "zh-TW" to "國語 (台灣)",
+                        "zh-CN" to "國語 (中國)",
+                        "en-US" to "English (US)",
+                        "ja-JP" to "日本語"
+                    )
+                    val currentLangName = languages.find { it.first == ttsLanguage }?.second ?: ttsLanguage
+
+                    Box {
+                        Row(modifier = Modifier.clickable { expanded = true }.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(currentLangName, style = MaterialTheme.typography.bodyMedium)
+                            Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                        }
+                        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                            languages.forEach { (code, name) ->
+                                DropdownMenuItem(
+                                    text = { Text(name) },
+                                    onClick = {
+                                        onTtsLanguageChange(code)
+                                        expanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text(getLabel("Ignore Sender", appLanguage), style = MaterialTheme.typography.bodyMedium)
+                    Switch(checked = ttsIgnoreSender, onCheckedChange = onTtsIgnoreSenderChange)
+                }
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text(getLabel("Ignore Emoji", appLanguage), style = MaterialTheme.typography.bodyMedium)
+                    Switch(checked = ttsIgnoreEmoji, onCheckedChange = onTtsIgnoreEmojiChange)
+                }
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text(getLabel("Ignore Links", appLanguage), style = MaterialTheme.typography.bodyMedium)
+                    Switch(checked = ttsIgnoreLinks, onCheckedChange = onTtsIgnoreLinksChange)
+                }
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text(getLabel("Only Sub/Cheer Messages", appLanguage), style = MaterialTheme.typography.bodyMedium)
+                    Switch(checked = ttsOnlySubOrCheer, onCheckedChange = onTtsOnlySubOrCheerChange)
+                }
+            }
+        }
+
+        HorizontalDivider()
+
+        // Font size
+        Column {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text(getLabel("Font Size", appLanguage), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("${chatFontSize.roundToInt()} sp", style = MaterialTheme.typography.labelMedium)
+            }
+            Slider(value = chatFontSize, onValueChange = onFontSizeChange, valueRange = 10f..20f, steps = 9, modifier = Modifier.fillMaxWidth())
+        }
+
+        // Username size
+        Column {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text(getLabel("Username Size", appLanguage), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("${chatUsernameSize.roundToInt()} sp", style = MaterialTheme.typography.labelMedium)
+            }
+            Slider(value = chatUsernameSize, onValueChange = onUsernameSizeChange, valueRange = 10f..20f, steps = 9, modifier = Modifier.fillMaxWidth())
+        }
+
+        // Line spacing
+        Column {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text(getLabel("Line Spacing", appLanguage), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("${chatLineSpacing.roundToInt()} dp", style = MaterialTheme.typography.labelMedium)
+            }
+            Slider(value = chatLineSpacing, onValueChange = onLineSpacingChange, valueRange = 0f..12f, steps = 11, modifier = Modifier.fillMaxWidth())
+        }
+
+        // Emote size
+        Column {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text(getLabel("Emote Size", appLanguage), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("${chatEmoteSize.roundToInt()} sp", style = MaterialTheme.typography.labelMedium)
+            }
+            Slider(value = chatEmoteSize, onValueChange = onEmoteSizeChange, valueRange = 16f..48f, steps = 15, modifier = Modifier.fillMaxWidth())
+        }
+
+        // Reset
+        TextButton(
+            onClick = {
+                onFontSizeChange(DEFAULT_FONT_SIZE)
+                onUsernameSizeChange(DEFAULT_USERNAME_SIZE)
+                onLineSpacingChange(DEFAULT_LINE_SPACING)
+                onEmoteSizeChange(DEFAULT_EMOTE_SIZE)
+                onTextShadowChange(DEFAULT_TEXT_SHADOW)
+                onShadowRadiusChange(DEFAULT_SHADOW_RADIUS)
+                onShadowOffsetXChange(DEFAULT_SHADOW_OFFSET_X)
+                onShadowOffsetYChange(DEFAULT_SHADOW_OFFSET_Y)
+            },
+            modifier = Modifier.align(Alignment.End)
+        ) {
+            Text(getLabel("Reset to Defaults", appLanguage), style = MaterialTheme.typography.labelSmall)
+        }
+
+        HorizontalDivider()
+
+        // Animated emotes
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                Text(getLabel("Animated Emotes", appLanguage), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(getLabel("Show GIF as animated images", appLanguage), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
+            }
+            Switch(checked = animatedEmotes, onCheckedChange = onAnimatedEmotesChange)
+        }
+
+        HorizontalDivider()
+
+        // Emote providers
+        Text(getLabel("Emote Sources", appLanguage), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text("7TV", style = MaterialTheme.typography.bodyMedium)
+            Switch(checked = enable7tv, onCheckedChange = onEnable7tvChange)
+        }
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text("BetterTTV", style = MaterialTheme.typography.bodyMedium)
+            Switch(checked = enableBttv, onCheckedChange = onEnableBttvChange)
+        }
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text("FrankerFaceZ", style = MaterialTheme.typography.bodyMedium)
+            Switch(checked = enableFfz, onCheckedChange = onEnableFfzChange)
+        }
+    }
+}
+
+fun getLabel(key: String, lang: String): String {
+    val labels = mapOf(
+        "Settings" to mapOf("zh-TW" to "設定", "en" to "Settings", "ja" to "設定"),
+        "Close" to mapOf("zh-TW" to "關閉", "en" to "Close", "ja" to "閉じる"),
+        "Twitch Channel" to mapOf("zh-TW" to "Twitch 頻道", "en" to "Twitch Channel", "ja" to "Twitchチャンネル"),
+        "YouTube Channel ID" to mapOf("zh-TW" to "YouTube 頻道 ID", "en" to "YouTube Channel ID", "ja" to "YouTubeチャンネルID"),
+        "Channel Name" to mapOf("zh-TW" to "頻道名稱", "en" to "Channel Name", "ja" to "チャンネル名"),
+        "Save" to mapOf("zh-TW" to "儲存", "en" to "Save", "ja" to "保存"),
+        "Saved" to mapOf("zh-TW" to "已儲存", "en" to "Saved", "ja" to "保存されました"),
+        "Background Color" to mapOf("zh-TW" to "背景顏色", "en" to "Background Color", "ja" to "背景色"),
+        "Transparent" to mapOf("zh-TW" to "透明", "en" to "Transparent", "ja" to "透明"),
+        "Black" to mapOf("zh-TW" to "黑色", "en" to "Black", "ja" to "黒"),
+        "White" to mapOf("zh-TW" to "白色", "en" to "White", "ja" to "白"),
+        "TTS" to mapOf("zh-TW" to "TTS 語音朗讀", "en" to "TTS", "ja" to "TTS"),
+        "Enable TTS" to mapOf("zh-TW" to "開啟 TTS", "en" to "Enable TTS", "ja" to "TTSを有効にする"),
+        "TTS Language" to mapOf("zh-TW" to "朗讀語系", "en" to "TTS Language", "ja" to "TTS言語"),
+        "Ignore Sender" to mapOf("zh-TW" to "忽略使用者名稱", "en" to "Ignore Sender", "ja" to "送信者を無視"),
+        "Ignore Emoji" to mapOf("zh-TW" to "忽略 Emoji 朗讀", "en" to "Ignore Emoji", "ja" to "絵文字を無視"),
+        "Ignore Links" to mapOf("zh-TW" to "忽略超連結", "en" to "Ignore Links", "ja" to "リンクを無視"),
+        "Only Sub/Cheer Messages" to mapOf("zh-TW" to "只讀取訂閱與小奇點訊息", "en" to "Only Read Sub & Cheer", "ja" to "サブスク・ビッドのみ読み上げ"),
+        "Font Size" to mapOf("zh-TW" to "字型大小", "en" to "Font Size", "ja" to "フォントサイズ"),
+        "Username Size" to mapOf("zh-TW" to "使用者名稱大小", "en" to "Username Size", "ja" to "ユーザー名サイズ"),
+        "Line Spacing" to mapOf("zh-TW" to "行距", "en" to "Line Spacing", "ja" to "行間"),
+        "Emote Size" to mapOf("zh-TW" to "表情符號大小", "en" to "Emote Size", "ja" to "エモートサイズ"),
+        "Reset to Defaults" to mapOf("zh-TW" to "重設為預設值", "en" to "Reset to Defaults", "ja" to "デフォルトに戻す"),
+        "Animated Emotes" to mapOf("zh-TW" to "動態表情符號", "en" to "Animated Emotes", "ja" to "アニメーションエモート"),
+        "Show GIF as animated images" to mapOf("zh-TW" to "將 GIF 顯示為動態圖片", "en" to "Show GIF as animated images", "ja" to "GIFをアニメーション画像として表示"),
+        "Emote Sources" to mapOf("zh-TW" to "表情符號來源", "en" to "Emote Sources", "ja" to "エモートソース"),
+        "App Language" to mapOf("zh-TW" to "程式語言", "en" to "App Language", "ja" to "アプリの語言"),
+        "Show Timestamp" to mapOf("zh-TW" to "顯示留言時間", "en" to "Show Timestamp", "ja" to "タイムスタンプを表示"),
+        "Show Stream Info" to mapOf("zh-TW" to "顯示直播資訊 (人數及時間)", "en" to "Show Stream Info (Viewers & Time)", "ja" to "配信情報を表示 (視聴者数・時間)"),
+        "Show Stream Title & Category" to mapOf("zh-TW" to "顯示 Twitch 標題與分類", "en" to "Show Twitch Title & Category", "ja" to "Twitch 配信タイトルとカテゴリーを表示"),
+        "Open Links in Browser" to mapOf("zh-TW" to "點擊開啟超連結", "en" to "Open Links in Browser", "ja" to "ハイパーリンクを開く"),
+        "Keep Screen On" to mapOf("zh-TW" to "保持螢幕長亮", "en" to "Keep Screen On", "ja" to "画面を常時オン"),
+        "Text Shadow" to mapOf("zh-TW" to "文字陰影", "en" to "Text Shadow", "ja" to "文字の影"),
+        "Shadow Radius" to mapOf("zh-TW" to "陰影深度", "en" to "Shadow Radius", "ja" to "影のぼかし"),
+        "Shadow Offset X" to mapOf("zh-TW" to "陰影偏移 X", "en" to "Shadow Offset X", "ja" to "影のオフセット X"),
+        "Shadow Offset Y" to mapOf("zh-TW" to "陰影偏移 Y", "en" to "Shadow Offset Y", "ja" to "影のオフセット Y"),
+        "reconnecting_twitch" to mapOf("zh-TW" to "正在連線Twitch聊天室", "en" to "Connecting to Twitch chat room", "ja" to "Twitchチャットルームに接続中"),
+        "reconnecting_youtube" to mapOf("zh-TW" to "正在連線YouTube聊天室", "en" to "Connecting to YouTube chat room", "ja" to "YouTubeチャットルームに接続中"),
+        "Member Notice" to mapOf("zh-TW" to "會員通知", "en" to "Member Notice", "ja" to "メンバー通知"),
+        "Joined Membership" to mapOf("zh-TW" to "加入頻道會員", "en" to "Joined membership", "ja" to "メンバーシップに加入"),
+        "Super Sticker" to mapOf("zh-TW" to "超級貼圖", "en" to "Super Sticker", "ja" to "スーパーステッカー"),
+        "Super Chat" to mapOf("zh-TW" to "SuperChat", "en" to "Super Chat", "ja" to "スーパーチャット"),
+        "Text Colors" to mapOf("zh-TW" to "文字顏色設定", "en" to "Text Colors", "ja" to "文字色設定"),
+        "Normal Message Color" to mapOf("zh-TW" to "一般留言文字顏色", "en" to "Normal Message Color", "ja" to "通常メッセージの文字色"),
+        "Twitch Notice Color" to mapOf("zh-TW" to "Twitch 通知文字顏色", "en" to "Twitch Notice Color", "ja" to "Twitch通知の文字色"),
+        "YouTube Notice Color" to mapOf("zh-TW" to "YouTube 通知文字顏色", "en" to "YouTube Notice Color", "ja" to "YouTube通知の文字色"),
+    )
+    return labels[key]?.get(lang) ?: key
+}
+
+val PAINT_PALETTE_COLORS = listOf(
+    "#FFFFFF", // White
+    "#808080", // Gray
+    "#1A1A1A", // Dark
+    "#FF0000", // Red
+    "#FF5252", // Coral Red
+    "#FF8C00", // Dark Orange
+    "#FFD700", // Gold
+    "#FFEB3B", // Yellow
+    "#00FF7F", // Spring Green
+    "#4CAF50", // Green
+    "#00E5FF", // Cyan / Light Blue
+    "#38BDF8", // Sky Blue
+    "#1E90FF", // Dodger Blue
+    "#9146FF", // Twitch Purple
+    "#E040FB", // Magenta
+    "#FF4081", // Bright Pink
+)
+
+@Composable
+private fun ColorSettingItem(
+    title: String,
+    selectedColorHex: String,
+    onColorSelected: (String) -> Unit
+) {
+    val previewColor = try { Color(selectedColorHex.toColorInt()) } catch (_: Exception) { Color.Gray }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(text = title, style = MaterialTheme.typography.bodyMedium)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(20.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(previewColor)
+                        .border(1.dp, Color.Gray, RoundedCornerShape(4.dp))
+                )
+                Text(
+                    text = selectedColorHex,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        PaintColorPalette(
+            selectedColorHex = selectedColorHex,
+            onColorSelected = onColorSelected
+        )
+    }
+}
+
+@Composable
+private fun PaintColorPalette(
+    selectedColorHex: String,
+    onColorSelected: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            PAINT_PALETTE_COLORS.take(8).forEach { hex ->
+                ColorSwatch(
+                    hex = hex,
+                    isSelected = selectedColorHex.equals(hex, ignoreCase = true),
+                    onClick = { onColorSelected(hex) }
+                )
+            }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            PAINT_PALETTE_COLORS.drop(8).forEach { hex ->
+                ColorSwatch(
+                    hex = hex,
+                    isSelected = selectedColorHex.equals(hex, ignoreCase = true),
+                    onClick = { onColorSelected(hex) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ColorSwatch(
+    hex: String,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    val swatchColor = try { Color(hex.toColorInt()) } catch (_: Exception) { Color.Gray }
+    Box(
+        modifier = Modifier
+            .size(22.dp)
+            .clip(CircleShape)
+            .background(swatchColor)
+            .border(
+                width = if (isSelected) 2.5.dp else 1.dp,
+                color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Gray.copy(alpha = 0.5f),
+                shape = CircleShape
+            )
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        if (isSelected) {
+            val checkColor = if (hex.equals("#FFFFFF", ignoreCase = true) || hex.equals("#FFEB3B", ignoreCase = true) || hex.equals("#FFD700", ignoreCase = true)) Color.Black else Color.White
+            Box(
+                modifier = Modifier
+                    .size(7.dp)
+                    .clip(CircleShape)
+                    .background(checkColor)
+            )
+        }
+    }
+}

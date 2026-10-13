@@ -1,0 +1,376 @@
+package com.kongjjj.overlay
+
+import android.content.Intent
+import android.content.res.Configuration
+import android.os.Build
+import android.os.Bundle
+import android.provider.Settings
+import android.widget.Toast
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Launch
+import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.core.net.toUri
+import com.kongjjj.overlay.ui.theme.ChatOverlayTheme
+
+class MainActivity : ComponentActivity() {
+
+    private var _showSettings = mutableStateOf(false)
+    private val overlayPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) {
+        if (Settings.canDrawOverlays(this)) {
+            startOverlayService()
+        } else {
+            Toast.makeText(this, "需要懸浮窗權限", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
+        super.onCreate(savedInstanceState)
+
+        handleIntent(intent)
+
+        setContent {
+            ChatOverlayTheme {
+                var showSettings by _showSettings
+                var showLanguageDialog by remember { mutableStateOf(value = false) }
+                val chatManager = remember { ChatManager.getInstance(applicationContext) }
+                
+                val twitchChannel by chatManager.twitchChannel.collectAsState()
+                val youtubeChannelId by chatManager.youtubeChannelId.collectAsState()
+                val fontSize by chatManager.chatFontSize.collectAsState()
+                val lineSpacing by chatManager.chatLineSpacing.collectAsState()
+                val emoteSize by chatManager.chatEmoteSize.collectAsState()
+                val usernameSize by chatManager.chatUsernameSize.collectAsState()
+                val animated by chatManager.animatedEmotes.collectAsState()
+                
+                val backgroundColor by chatManager.backgroundColor.collectAsState()
+                val appLanguage by chatManager.appLanguage.collectAsState()
+                val showTimestamp by chatManager.showTimestamp.collectAsState()
+                val showStreamInfo by chatManager.showStreamInfo.collectAsState()
+                val showStreamTitle by chatManager.showStreamTitle.collectAsState()
+                val openLinksInBrowser by chatManager.openLinksInBrowser.collectAsState()
+                val keepScreenOn by chatManager.keepScreenOn.collectAsState()
+                val ttsEnabled by chatManager.ttsEnabled.collectAsState()
+                val ttsLanguage by chatManager.ttsLanguage.collectAsState()
+                val ttsIgnoreSender by chatManager.ttsIgnoreSender.collectAsState()
+                val ttsIgnoreEmoji by chatManager.ttsIgnoreEmoji.collectAsState()
+                val ttsIgnoreLinks by chatManager.ttsIgnoreLinks.collectAsState()
+                val ttsOnlySubOrCheer by chatManager.ttsOnlySubOrCheer.collectAsState()
+
+                val context = LocalContext.current
+                val configuration = LocalConfiguration.current
+                val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+                val buttonModifier = if (isLandscape) Modifier.fillMaxWidth(0.5f) else Modifier.fillMaxWidth()
+
+                val packageInfo = remember {
+                    try {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            context.packageManager.getPackageInfo(context.packageName, android.content.pm.PackageManager.PackageInfoFlags.of(0))
+                        } else {
+                            @Suppress("DEPRECATION")
+                            context.packageManager.getPackageInfo(context.packageName, 0)
+                        }
+                    } catch (_: Exception) {
+                        null
+                    }
+                }
+                val versionName = packageInfo?.versionName ?: "Unknown"
+
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxSize().padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = "Chat Overlay",
+                            style = MaterialTheme.typography.headlineMedium
+                        )
+                        
+                        Text(
+                            text = "Chat viewer app for IRL streaming.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        Spacer(modifier = Modifier.height(32.dp))
+                        
+                        Button(
+                            onClick = { checkPermissionAndStart() },
+                            modifier = buttonModifier
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.Launch,
+                                contentDescription = null,
+                                modifier = Modifier.size(ButtonDefaults.IconSize)
+                            )
+                            Spacer(modifier = Modifier.width(ButtonDefaults.IconSpacing))
+                            Text(getLabel("Open Floating Chat", appLanguage))
+                        }
+                        
+                        Spacer(modifier = Modifier.height(16.dp))
+                        
+                        Button(
+                            onClick = { showSettings = true },
+                            modifier = buttonModifier,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                contentColor = MaterialTheme.colorScheme.onSurface
+                            )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = null,
+                                modifier = Modifier.size(ButtonDefaults.IconSize)
+                            )
+                            Spacer(modifier = Modifier.width(ButtonDefaults.IconSpacing))
+                            Text(getLabel("Settings", appLanguage))
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Button(
+                            onClick = { showLanguageDialog = true },
+                            modifier = buttonModifier,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                contentColor = MaterialTheme.colorScheme.onSurface
+                            )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Language,
+                                contentDescription = null,
+                                modifier = Modifier.size(ButtonDefaults.IconSize)
+                            )
+                            Spacer(modifier = Modifier.width(ButtonDefaults.IconSpacing))
+                            Text(getLabel("App Language", appLanguage))
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Button(
+                            onClick = { 
+                                chatManager.clearChatCache(this@MainActivity)
+                                finishAffinity() 
+                            },
+                            modifier = buttonModifier,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                contentColor = MaterialTheme.colorScheme.onSurface
+                            )
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.Logout,
+                                contentDescription = null,
+                                modifier = Modifier.size(ButtonDefaults.IconSize)
+                            )
+                            Spacer(modifier = Modifier.width(ButtonDefaults.IconSpacing))
+                            Text(getLabel("Exit App", appLanguage))
+                        }
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        Text(
+                            text = "@2026 kongjjj  Version $versionName",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                            fontSize = 10.sp
+                        )
+                    }
+                    
+                    if (showLanguageDialog) {
+                        LanguageSelectionDialog(
+                            currentLanguage = appLanguage,
+                            onLanguageSelected = { code ->
+                                chatManager.saveAppLanguage(code, this@MainActivity)
+                                showLanguageDialog = false
+                            },
+                            onDismiss = { showLanguageDialog = false },
+                            appLanguage = appLanguage
+                        )
+                    }
+
+                    if (showSettings) {
+                        SettingsDialog(
+                            twitchChannel = twitchChannel,
+                            youtubeChannelId = youtubeChannelId,
+                            chatFontSize = fontSize,
+                            chatLineSpacing = lineSpacing,
+                            chatEmoteSize = emoteSize,
+                            chatUsernameSize = usernameSize,
+                            animatedEmotes = animated,
+                            enable7tv = chatManager.enable7tv.collectAsState().value,
+                            enableBttv = chatManager.enableBttv.collectAsState().value,
+                            enableFfz = chatManager.enableFfz.collectAsState().value,
+                            backgroundColor = backgroundColor,
+                            appLanguage = appLanguage,
+                            showTimestamp = showTimestamp,
+                            showStreamInfo = showStreamInfo,
+                            showStreamTitle = showStreamTitle,
+                            openLinksInBrowser = openLinksInBrowser,
+                            keepScreenOn = keepScreenOn,
+                            textShadow = chatManager.textShadow.collectAsState().value,
+                            shadowRadius = chatManager.shadowRadius.collectAsState().value,
+                            shadowOffsetX = chatManager.shadowOffsetX.collectAsState().value,
+                            shadowOffsetY = chatManager.shadowOffsetY.collectAsState().value,
+                            normalMessageColor = chatManager.normalMessageColor.collectAsState().value,
+                            twitchNoticeColor = chatManager.twitchNoticeColor.collectAsState().value,
+                            youtubeNoticeColor = chatManager.youtubeNoticeColor.collectAsState().value,
+                            ttsEnabled = ttsEnabled,
+                            ttsLanguage = ttsLanguage,
+                            ttsIgnoreSender = ttsIgnoreSender,
+                            ttsIgnoreEmoji = ttsIgnoreEmoji,
+                            ttsIgnoreLinks = ttsIgnoreLinks,
+                            ttsOnlySubOrCheer = ttsOnlySubOrCheer,
+                            onSaveChannel = { chatManager.saveTwitchChannel(it, this@MainActivity) },
+                            onSaveYoutubeChannelId = { chatManager.saveYoutubeChannelId(it, this@MainActivity) },
+                            onFontSizeChange = { chatManager.saveFontSize(it, this@MainActivity) },
+                            onLineSpacingChange = { chatManager.saveLineSpacing(it, this@MainActivity) },
+                            onEmoteSizeChange = { chatManager.saveEmoteSize(it, this@MainActivity) },
+                            onUsernameSizeChange = { chatManager.saveUsernameSize(it, this@MainActivity) },
+                            onAnimatedEmotesChange = { chatManager.saveAnimatedEmotes(it, this@MainActivity) },
+                            onEnable7tvChange = { chatManager.saveEnable7tv(it, this@MainActivity) },
+                            onEnableBttvChange = { chatManager.saveEnableBttv(it, this@MainActivity) },
+                            onEnableFfzChange = { chatManager.saveEnableFfz(it, this@MainActivity) },
+                            onBackgroundColorChange = { chatManager.saveBackgroundColor(it, this@MainActivity) },
+                            onNormalMessageColorChange = { chatManager.saveNormalMessageColor(it, this@MainActivity) },
+                            onTwitchNoticeColorChange = { chatManager.saveTwitchNoticeColor(it, this@MainActivity) },
+                            onYoutubeNoticeColorChange = { chatManager.saveYoutubeNoticeColor(it, this@MainActivity) },
+                            onShowTimestampChange = { chatManager.saveShowTimestamp(it, this@MainActivity) },
+                            onShowStreamInfoChange = { chatManager.saveShowStreamInfo(it, this@MainActivity) },
+                            onShowStreamTitleChange = { chatManager.saveShowStreamTitle(it, this@MainActivity) },
+                            onOpenLinksInBrowserChange = { chatManager.saveOpenLinksInBrowser(it, this@MainActivity) },
+                            onKeepScreenOnChange = { chatManager.saveKeepScreenOn(it, this@MainActivity) },
+                            onTextShadowChange = { chatManager.saveTextShadow(it, this@MainActivity) },
+                            onShadowRadiusChange = { chatManager.saveShadowRadius(it, this@MainActivity) },
+                            onShadowOffsetXChange = { chatManager.saveShadowOffsetX(it, this@MainActivity) },
+                            onShadowOffsetYChange = { chatManager.saveShadowOffsetY(it, this@MainActivity) },
+                            onTtsEnabledChange = { chatManager.saveTtsEnabled(it, this@MainActivity) },
+                            onTtsLanguageChange = { chatManager.saveTtsLanguage(it, this@MainActivity) },
+                            onTtsIgnoreSenderChange = { chatManager.saveTtsIgnoreSender(it, this@MainActivity) },
+                            onTtsIgnoreEmojiChange = { chatManager.saveTtsIgnoreEmoji(it, this@MainActivity) },
+                            onTtsIgnoreLinksChange = { chatManager.saveTtsIgnoreLinks(it, this@MainActivity) },
+                            onTtsOnlySubOrCheerChange = { chatManager.saveTtsOnlySubOrCheer(it, this@MainActivity) },
+                        ) {
+                            showSettings = false
+                        }
+                    }
+                }
+            }
+        }
+
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(intent: Intent?) {
+        if (intent?.getBooleanExtra("SHOW_SETTINGS", false) == true) {
+            _showSettings.value = true
+        }
+    }
+    private fun checkPermissionAndStart() {
+        if (!Settings.canDrawOverlays(this)) {
+            val intent = Intent(
+                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                "package:$packageName".toUri(),
+            )
+            overlayPermissionLauncher.launch(intent)
+            return
+        }
+        startOverlayService()
+    }
+
+    private fun startOverlayService() {
+        val intent = Intent(this, FloatingViewService::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(intent)
+        } else {
+            startService(intent)
+        }
+        moveTaskToBack(true)
+    }
+
+    // Helper for main screen labels
+    private fun getLabel(key: String, lang: String): String {
+        val labels = mapOf(
+            "Open Floating Chat" to mapOf("zh-TW" to "開啟懸浮聊天室", "en" to "Open Floating Chat", "ja" to "フローティングチャットを開く"),
+            "Settings" to mapOf("zh-TW" to "設定", "en" to "Settings", "ja" to "設定"),
+            "App Language" to mapOf("zh-TW" to "程式語言", "en" to "App Language", "ja" to "アプリの言語"),
+            "Exit App" to mapOf("zh-TW" to "關閉程式", "en" to "Exit App", "ja" to "終了"),
+            "Close" to mapOf("zh-TW" to "關閉", "en" to "Close", "ja" to "閉じる"),
+        )
+        return labels[key]?.get(lang) ?: key
+    }
+}
+
+@Composable
+fun LanguageSelectionDialog(
+    currentLanguage: String,
+    onLanguageSelected: (String) -> Unit,
+    onDismiss: () -> Unit,
+    appLanguage: String
+) {
+    val languages = listOf("zh-TW" to "繁體中文", "en" to "English", "ja" to "日本語")
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(getLabel("App Language", appLanguage)) },
+        text = {
+            Column {
+                languages.forEach { (code, name) ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onLanguageSelected(code) }
+                            .padding(vertical = 12.dp, horizontal = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(name, style = MaterialTheme.typography.bodyLarge)
+                        if (code == currentLanguage) {
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = "Selected",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(getLabel("Close", appLanguage))
+            }
+        },
+        shape = RoundedCornerShape(16.dp),
+        containerColor = MaterialTheme.colorScheme.surface,
+        tonalElevation = 6.dp
+    )
+}

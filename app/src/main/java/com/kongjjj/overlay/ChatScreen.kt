@@ -1,0 +1,885 @@
+package com.kongjjj.overlay
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.InlineTextContent
+import androidx.compose.foundation.text.appendInlineContent
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Whatshot
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.Placeholder
+import androidx.compose.ui.text.PlaceholderVerticalAlign
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.core.graphics.toColorInt
+import coil.ImageLoader
+import coil.compose.AsyncImage
+import coil.decode.GifDecoder
+
+val TiffanyBlue = Color(0xFF0ABAB5)
+
+@Composable
+fun ChatScreen(
+    twitchChannel: String,
+    youtubeChannelId: String,
+    chatMessages: List<ChatMessage>,
+    chatConnected: Boolean,
+    thirdPartyEmotes: Map<String, String>,
+    twitchBadges: Map<String, String>,
+    chatFontSize: Float,
+    chatLineSpacing: Float,
+    chatEmoteSize: Float,
+    chatUsernameSize: Float,
+    animatedEmotes: Boolean,
+    appLanguage: String,
+    showTimestamp: Boolean = false,
+    showStreamInfo: Boolean = true,
+    showStreamTitle: Boolean = true,
+    streamTitle: String = "",
+    streamCategory: String = "",
+    viewersCount: Int = 0,
+    youtubeViewersCount: Int = 0,
+    uptimeText: String = "",
+    backgroundColor: String = "transparent",
+    textShadow: Boolean = DEFAULT_TEXT_SHADOW,
+    shadowRadius: Float = DEFAULT_SHADOW_RADIUS,
+    shadowOffsetX: Float = DEFAULT_SHADOW_OFFSET_X,
+    shadowOffsetY: Float = DEFAULT_SHADOW_OFFSET_Y,
+    normalMessageColor: String = DEFAULT_NORMAL_MESSAGE_COLOR,
+    twitchNoticeColor: String = DEFAULT_TWITCH_NOTICE_COLOR,
+    youtubeNoticeColor: String = DEFAULT_YOUTUBE_NOTICE_COLOR,
+    showChrome: Boolean = true,
+    openLinksInBrowser: Boolean = true,
+    onResetHideTimer: (() -> Unit)? = null,
+    onLinkClicked: ((String) -> Unit)? = null,
+    onConnect: () -> Unit
+) {
+    val listState = rememberLazyListState()
+    var lastItemCount by remember { mutableIntStateOf(0) }
+    var forceScrollToBottom by remember { mutableStateOf(false) }
+
+    // Auto-connect when a channel is configured
+    LaunchedEffect(twitchChannel, youtubeChannelId) {
+        if (twitchChannel.isNotEmpty() || youtubeChannelId.isNotEmpty()) onConnect()
+    }
+
+    // Snap to bottom when connection is established/restored
+    LaunchedEffect(chatConnected) {
+        if (chatConnected) {
+            forceScrollToBottom = true
+        }
+    }
+
+    // Auto-scroll logic:
+    // Trigger on ANY message update (even if size stays at 100)
+    LaunchedEffect(chatMessages) {
+        if (chatMessages.isNotEmpty()) {
+            val layoutInfo = listState.layoutInfo
+            val visibleItems = layoutInfo.visibleItemsInfo
+            
+            // Check if user is currently near the bottom of the list
+            val isAtBottom = if (visibleItems.isNotEmpty()) {
+                val lastVisibleIndex = visibleItems.last().index
+                val totalItems = layoutInfo.totalItemsCount
+                // Threshold of 25 messages to be very forgiving
+                lastVisibleIndex >= totalItems - 25 || (lastItemCount > 0 && lastVisibleIndex >= lastItemCount - 25)
+            } else {
+                // If it's the first time messages appear
+                true
+            }
+
+            if ((isAtBottom || forceScrollToBottom) && !listState.isScrollInProgress) {
+                // scrollToItem is more reliable than animateScrollToItem for rapid updates
+                listState.scrollToItem(chatMessages.size - 1)
+                forceScrollToBottom = false
+            }
+        }
+        lastItemCount = chatMessages.size
+    }
+
+    val context = LocalContext.current
+    val imageLoader: ImageLoader = remember(animatedEmotes) {
+        if (animatedEmotes) {
+            ImageLoader.Builder(context).components { add(GifDecoder.Factory()) }.build()
+        } else {
+            ImageLoader.Builder(context).build()
+        }
+    }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+
+        // ── Status row ────────────────────────────────────────────────────────
+        if (showChrome && (twitchChannel.isNotEmpty() || youtubeChannelId.isNotEmpty())) {
+            Surface(tonalElevation = 2.dp, color = Color.Transparent) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    // Added spacer to avoid overlap with the ic_back button (25dp)
+                    Spacer(modifier = Modifier.width(28.dp))
+
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        if (twitchChannel.isNotEmpty()) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .background(
+                                            color = if (chatConnected) Color(0xFF9146FF) else Color(0xFF9E9E9E),
+                                            shape = CircleShape
+                                        )
+                                )
+                                Text(
+                                    text = "Twitch: #$twitchChannel",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        if (youtubeChannelId.isNotEmpty()) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .background(
+                                            color = if (chatConnected) Color(0xFFFF0000) else Color(0xFF9E9E9E),
+                                            shape = CircleShape
+                                        )
+                                )
+                                Text(
+                                    text = "YouTube: $youtubeChannelId",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+
+                    if (!chatConnected) {
+                        TextButton(onClick = onConnect) { Text("Reconnect") }
+                    }
+
+                    // Added spacer to avoid overlap with the ic_close button (25dp)
+                    Spacer(modifier = Modifier.width(28.dp))
+                }
+            }
+            HorizontalDivider()
+        }
+
+        // ── Stream Info (Persistently visible if enabled, below divider) ──────
+        val hasStreamTitleInfo = showStreamTitle && (streamTitle.isNotEmpty() || streamCategory.isNotEmpty())
+        val hasViewersUptimeInfo = youtubeViewersCount > 0 || viewersCount > 0 || uptimeText.isNotEmpty()
+        if (showStreamInfo && (hasStreamTitleInfo || hasViewersUptimeInfo)) {
+            val contentColor = if (backgroundColor == "white") Color.Black else Color.White
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                if (hasStreamTitleInfo) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        if (streamCategory.isNotEmpty()) {
+                            Surface(
+                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f),
+                                shape = RoundedCornerShape(4.dp)
+                            ) {
+                                Text(
+                                    text = streamCategory,
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold
+                                    ),
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                                )
+                            }
+                        }
+                        if (streamTitle.isNotEmpty()) {
+                            Text(
+                                text = streamTitle,
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    shadow = if (textShadow && backgroundColor != "white") Shadow(
+                                        color = Color.Black,
+                                        offset = Offset(shadowOffsetX, shadowOffsetY),
+                                        blurRadius = shadowRadius
+                                    ) else null
+                                ),
+                                color = contentColor,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+                if (hasViewersUptimeInfo) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        if (youtubeViewersCount > 0) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Person,
+                                    contentDescription = "YouTube Viewers",
+                                    tint = Color(0xFFFF0000),
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Text(
+                                    text = youtubeViewersCount.toString(),
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        shadow = if (textShadow && backgroundColor != "white") Shadow(
+                                            color = Color.Black,
+                                            offset = Offset(shadowOffsetX, shadowOffsetY),
+                                            blurRadius = shadowRadius
+                                        ) else null
+                                    ),
+                                    color = contentColor,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                        if (viewersCount > 0) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Person,
+                                    contentDescription = "Twitch Viewers",
+                                    tint = Color(0xFF9146FF),
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Text(
+                                    text = viewersCount.toString(),
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        shadow = if (textShadow && backgroundColor != "white") Shadow(
+                                            color = Color.Black,
+                                            offset = Offset(shadowOffsetX, shadowOffsetY),
+                                            blurRadius = shadowRadius
+                                        ) else null
+                                    ),
+                                    color = contentColor,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                        if (uptimeText.isNotEmpty()) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Schedule,
+                                    contentDescription = "Uptime",
+                                    tint = contentColor,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Text(
+                                    text = uptimeText,
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        shadow = if (textShadow && backgroundColor != "white") Shadow(
+                                            color = Color.Black,
+                                            offset = Offset(shadowOffsetX, shadowOffsetY),
+                                            blurRadius = shadowRadius
+                                        ) else null
+                                    ),
+                                    color = contentColor,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── Messages / empty states ───────────────────────────────────────────
+        if (twitchChannel.isEmpty() && youtubeChannelId.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxSize().padding(32.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Tap the StudioBridge title above to open Settings and enter your Twitch channel or YouTube Channel ID.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+            }
+        } else if (chatMessages.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(
+                    text = if (chatConnected) "Waiting for chat messages…" else "Not connected",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+            }
+        } else {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(vertical = 4.dp)
+            ) {
+                items(chatMessages, key = { it.id }) { msg ->
+                    ChatMessageRow(
+                        message = msg,
+                        thirdPartyEmotes = thirdPartyEmotes,
+                        twitchBadges = twitchBadges,
+                        fontSize = chatFontSize,
+                        lineSpacing = chatLineSpacing,
+                        emoteSize = chatEmoteSize,
+                        usernameSize = chatUsernameSize,
+                        showTimestamp = showTimestamp,
+                        appLanguage = appLanguage,
+                        textShadow = textShadow,
+                        shadowRadius = shadowRadius,
+                        shadowOffsetX = shadowOffsetX,
+                        shadowOffsetY = shadowOffsetY,
+                        normalMessageColor = normalMessageColor,
+                        twitchNoticeColor = twitchNoticeColor,
+                        youtubeNoticeColor = youtubeNoticeColor,
+                        backgroundColor = backgroundColor,
+                        openLinksInBrowser = openLinksInBrowser,
+                        onResetHideTimer = onResetHideTimer,
+                        onLinkClicked = onLinkClicked,
+                        imageLoader = imageLoader
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ChatMessageRow(
+    message: ChatMessage,
+    thirdPartyEmotes: Map<String, String>,
+    twitchBadges: Map<String, String>,
+    fontSize: Float,
+    lineSpacing: Float,
+    emoteSize: Float,
+    usernameSize: Float,
+    appLanguage: String,
+    showTimestamp: Boolean,
+    textShadow: Boolean,
+    shadowRadius: Float,
+    shadowOffsetX: Float,
+    shadowOffsetY: Float,
+    normalMessageColor: String = DEFAULT_NORMAL_MESSAGE_COLOR,
+    twitchNoticeColor: String = DEFAULT_TWITCH_NOTICE_COLOR,
+    youtubeNoticeColor: String = DEFAULT_YOUTUBE_NOTICE_COLOR,
+    backgroundColor: String = "transparent",
+    openLinksInBrowser: Boolean = true,
+    onResetHideTimer: (() -> Unit)? = null,
+    onLinkClicked: ((String) -> Unit)? = null,
+    imageLoader: ImageLoader
+) {
+    val badgeSize = (fontSize * 1.1f).sp
+    val emoteSizeSp = emoteSize.sp
+
+    val defaultColor = MaterialTheme.colorScheme.primary
+    val nameColor: Color = remember(message.color, defaultColor) {
+        if (message.color != null) {
+            try { Color(message.color.toColorInt()) }
+            catch (_: Exception) { defaultColor }
+        } else defaultColor
+    }
+
+    // Resolve badge URLs, falling back to version "0" for channel-specific sets
+    val badgeUrls: List<String> = remember(message.id, twitchBadges.size) {
+        message.badgeTags.map { tag ->
+            when {
+                tag.startsWith("http") -> tag
+                tag == "yt-MODERATOR" -> "local:ic_youtubemod"
+                tag == "yt-OWNER" -> "https://www.gstatic.com/youtube/img/live_chat/badges/owner_active.png"
+                tag == "yt-VERIFIED" -> "https://www.gstatic.com/youtube/img/live_chat/badges/verified_active.png"
+                else -> twitchBadges[tag] ?: twitchBadges["${tag.substringBefore('/')}/0"] ?: ""
+            }
+        }.filter { it.isNotEmpty() }
+    }
+
+    // Special message styling (Announcements & UserNotices & Bits & SuperChat & Membership)
+    val isSuperChatOrMembership = remember(message.isSuperChat, message.isMembership, message.message) {
+        message.isSuperChat || message.isMembership || message.message.startsWith("【SuperChat") || message.message.startsWith("【Super Sticker") || message.message.startsWith("【會員通知")
+    }
+
+    val isSpecialMessage = remember(message.isAnnouncement, message.twitchMsgId, message.bits, isSuperChatOrMembership) {
+        message.isAnnouncement || message.twitchMsgId != null || message.bits > 0 || isSuperChatOrMembership
+    }
+    val announcementBgColor = remember(message.isAnnouncement, message.announcementColor, message.bits, message.twitchMsgId, isSuperChatOrMembership) {
+        if (!isSpecialMessage) return@remember Color.Transparent
+        when {
+            isSuperChatOrMembership -> Color(0xFFFF0000).copy(alpha = 0.15f)
+            message.isAnnouncement -> {
+                when (message.announcementColor?.uppercase()) {
+                    "BLUE" -> Color(0xFF00ADFF).copy(alpha = 0.15f)
+                    "GREEN" -> Color(0xFF00FF7F).copy(alpha = 0.15f)
+                    "ORANGE" -> Color(0xFFFF8C00).copy(alpha = 0.15f)
+                    "PURPLE" -> Color(0xFFA020F0).copy(alpha = 0.15f)
+                    else -> Color(0xFF9146FF).copy(alpha = 0.15f)
+                }
+            }
+            else -> Color(0xFF9146FF).copy(alpha = 0.1f)
+        }
+    }
+    val announcementBorderColor = remember(message.isAnnouncement, message.announcementColor, message.bits, message.twitchMsgId, isSuperChatOrMembership) {
+        if (!isSpecialMessage) return@remember Color.Transparent
+        when {
+            isSuperChatOrMembership -> Color(0xFFFF0000)
+            message.isAnnouncement -> {
+                when (message.announcementColor?.uppercase()) {
+                    "BLUE" -> Color(0xFF00ADFF)
+                    "GREEN" -> Color(0xFF00FF7F)
+                    "ORANGE" -> Color(0xFFFF8C00)
+                    "PURPLE" -> Color(0xFFA020F0)
+                    else -> Color(0xFF9146FF)
+                }
+            }
+            else -> Color(0xFF9146FF).copy(alpha = 0.5f)
+        }
+    }
+
+    val displayMessageText = remember(message.message, isSuperChatOrMembership) {
+        if (isSuperChatOrMembership && (message.message.startsWith("【SuperChat") || message.message.startsWith("【Super Sticker") || message.message.startsWith("【會員通知"))) {
+            val headerEnd = message.message.indexOf('】')
+            if (headerEnd != -1 && headerEnd + 1 < message.message.length) {
+                message.message.substring(headerEnd + 1).trim()
+            } else if (headerEnd != -1) "" else message.message
+        } else {
+            message.message
+        }
+    }
+
+    val localizedMessageText = remember(displayMessageText, appLanguage) {
+        if (displayMessageText == "[超級貼圖]" || displayMessageText == "[Super Sticker]" || displayMessageText == "[スーパーステッカー]") {
+            when (appLanguage) {
+                "en" -> "[Super Sticker]"
+                "ja" -> "[スーパーステッカー]"
+                else -> "[超級貼圖]"
+            }
+        } else {
+            displayMessageText
+        }
+    }
+
+    val segments: List<MessageSegment> = remember(message.id, thirdPartyEmotes.size, localizedMessageText) {
+        parseMessageSegments(localizedMessageText, message.emotesTag, thirdPartyEmotes, message.youtubeEmotes)
+    }
+
+    val timestampText = remember(message.timestamp, showTimestamp) {
+        if (showTimestamp && message.timestamp != null) {
+            val date = java.util.Date(message.timestamp)
+            val sdf = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
+            sdf.format(date) + " "
+        } else ""
+    }
+
+    val inlineContent: Map<String, InlineTextContent> = remember(
+        message.id, thirdPartyEmotes.size, twitchBadges.size, imageLoader, fontSize, emoteSize
+    ) {
+        buildMap {
+            put("platform_icon", InlineTextContent(
+                Placeholder(badgeSize, badgeSize, PlaceholderVerticalAlign.TextCenter)
+            ) {
+                val iconRes = if (message.platform == "youtube") R.drawable.ic_youtube else R.drawable.ic_twitch
+                AsyncImage(model = iconRes, contentDescription = message.platform,
+                    imageLoader = imageLoader, modifier = Modifier.fillMaxSize())
+            })
+            badgeUrls.forEach { url ->
+                put(url, InlineTextContent(
+                    Placeholder(badgeSize, badgeSize, PlaceholderVerticalAlign.TextCenter)
+                ) {
+                    val model: Any = if (url == "local:ic_youtubemod") R.drawable.ic_youtubemod else url
+                    AsyncImage(model = model, contentDescription = null,
+                        imageLoader = imageLoader, modifier = Modifier.fillMaxSize())
+                })
+            }
+            put("system_star", InlineTextContent(
+                Placeholder(fontSize.sp, fontSize.sp, PlaceholderVerticalAlign.TextCenter)
+            ) {
+                Icon(imageVector = Icons.Default.Star, contentDescription = null, tint = Color(0xFFFF8C00), modifier = Modifier.fillMaxSize())
+            })
+            put("system_flame", InlineTextContent(
+                Placeholder(fontSize.sp, fontSize.sp, PlaceholderVerticalAlign.TextCenter)
+            ) {
+                Icon(imageVector = Icons.Default.Whatshot, contentDescription = null, tint = Color(0xFFFF8C00), modifier = Modifier.fillMaxSize())
+            })
+            segments.filter { it is MessageSegment.EmotePart || it is MessageSegment.BitsPart }
+                .mapNotNull { 
+                    when(it) {
+                        is MessageSegment.EmotePart -> it.url to it.name
+                        is MessageSegment.BitsPart -> it.url to "bits"
+                        else -> null
+                    }
+                }
+                .distinctBy { it.first }
+                .forEach { (url, name) ->
+                    put(url, InlineTextContent(
+                        Placeholder(emoteSizeSp, emoteSizeSp, PlaceholderVerticalAlign.TextCenter)
+                    ) {
+                        AsyncImage(model = url, contentDescription = name,
+                            imageLoader = imageLoader, modifier = Modifier.fillMaxSize())
+                    })
+                }
+        }
+    }
+
+    val rowTextColor = if (backgroundColor == "white") Color.Black else Color.White
+
+    val annotatedText = remember(message.id, thirdPartyEmotes.size, twitchBadges.size, nameColor, usernameSize, timestampText, appLanguage, backgroundColor, localizedMessageText, normalMessageColor, twitchNoticeColor, youtubeNoticeColor) {
+        buildAnnotatedString {
+            if (timestampText.isNotEmpty()) {
+                val timestampColor = if (backgroundColor == "white") Color.DarkGray.copy(alpha = 0.8f) else Color.LightGray.copy(alpha = 0.8f)
+                withStyle(SpanStyle(color = timestampColor, fontSize = (fontSize * 0.8f).sp)) {
+                    append(timestampText)
+                    append(' ')
+                }
+            }
+
+            if (message.platform == "system") {
+                val systemColor = if (backgroundColor == "white") Color(0xFFD97706) else Color.Yellow
+                withStyle(SpanStyle(color = systemColor, fontWeight = FontWeight.Bold)) {
+                    val systemText = if (message.systemMessageKey != null) {
+                        getLabel(message.systemMessageKey, appLanguage)
+                    } else {
+                        message.message
+                    }
+                    append(systemText)
+                }
+            } else {
+                // Show System Message / SuperChat / Membership Header first
+                val superChatHeader = if (isSuperChatOrMembership) {
+                    getLocalizedYouTubeHeader(message, appLanguage)
+                } else null
+
+                val actualSystemMsg = if (isSuperChatOrMembership) superChatHeader else message.rawSystemMessage
+
+                val hasUserComment = displayMessageText.trim().isNotEmpty()
+                val showLine2 = if (message.platform == "youtube") true else (hasUserComment || actualSystemMsg.isNullOrEmpty())
+
+                if (!actualSystemMsg.isNullOrEmpty()) {
+                    if (!isSuperChatOrMembership) {
+                        val isStreak = message.twitchMsgId == "viewermilestone"
+                        val isSubOrRaid = when(message.twitchMsgId) {
+                            "sub", "resub", "subgift", "anonsubgift", "submysterygift", 
+                            "giftpaidupgrade", "rewardgift", "anongiftpaidupgrade", 
+                            "primepaidupgrade", "raid", "bitsbadgetier" -> true
+                            else -> false
+                        }
+
+                        if (isStreak) {
+                            appendInlineContent("system_flame", "[flame]")
+                            append(' ')
+                        } else if (isSubOrRaid) {
+                            appendInlineContent("system_star", "[star]")
+                            append(' ')
+                        }
+                    }
+
+                    val localizedMsg = if (isSuperChatOrMembership) actualSystemMsg else getLocalizedTwitchSystemMessage(message, appLanguage)
+                    val headerColor = if (isSuperChatOrMembership) {
+                        if (backgroundColor == "white") Color(0xFFD32F2F) else Color(0xFFFF5252)
+                    } else {
+                        parseColor(twitchNoticeColor, Color(0xFFFF8C00))
+                    }
+
+                    withStyle(SpanStyle(color = headerColor, fontWeight = FontWeight.Bold)) {
+                        append(localizedMsg)
+                    }
+                    if (showLine2) {
+                        append("\n")
+                    }
+                }
+
+                // Show the standard "User: Message" part
+                if (showLine2) {
+                    if (message.platform == "youtube" || message.platform == "twitch") {
+                        appendInlineContent("platform_icon", "[${message.platform}]")
+                        append(' ')
+                    }
+
+                    // Twitch: badges BEFORE name
+                    if (message.platform == "twitch") {
+                        badgeUrls.forEachIndexed { i, url ->
+                            appendInlineContent(url, "[badge]")
+                            if (i < badgeUrls.lastIndex) append('\u2009') else append(' ')
+                        }
+                    }
+
+                    val actionStyle = if (message.isAction) SpanStyle(fontStyle = FontStyle.Italic) else SpanStyle()
+                    
+                    withStyle(actionStyle) {
+                        withStyle(SpanStyle(color = nameColor, fontWeight = FontWeight.SemiBold, fontSize = usernameSize.sp)) {
+                            append(message.username)
+                            if (message.login != null && !message.login.equals(message.username, ignoreCase = true)) {
+                                append(" (${message.login})")
+                            }
+                        }
+
+                        // YouTube: badges AFTER name
+                        if (message.platform == "youtube") {
+                            badgeUrls.forEachIndexed { i, url ->
+                                if (i == 0) append(' ')
+                                appendInlineContent(url, "[badge]")
+                                if (i < badgeUrls.lastIndex) append('\u2009')
+                            }
+                        }
+
+                        if (message.isAction) {
+                            append(" ")
+                        } else if (hasUserComment) {
+                            append(": ")
+                        }
+                        
+                        val superChatTextColor = if (isSuperChatOrMembership) {
+                            parseColor(youtubeNoticeColor, if (backgroundColor == "white") Color(0xFF0288D1) else Color(0xFF00E5FF))
+                        } else null
+
+                        val parsedNormalColor = parseColor(normalMessageColor, rowTextColor)
+                        val normalTextColor = if (backgroundColor == "white" && (normalMessageColor.equals("#FFFFFF", ignoreCase = true) || normalMessageColor.equals("#FFF", ignoreCase = true))) Color.Black else parsedNormalColor
+
+                        segments.forEach { seg ->
+                            when (seg) {
+                                is MessageSegment.TextPart -> {
+                                    if (superChatTextColor != null) {
+                                        withStyle(SpanStyle(color = superChatTextColor, fontWeight = FontWeight.Bold)) {
+                                            append(seg.text)
+                                        }
+                                    } else {
+                                        withStyle(SpanStyle(color = normalTextColor)) {
+                                            append(seg.text)
+                                        }
+                                    }
+                                }
+                                is MessageSegment.EmotePart -> appendInlineContent(seg.url, "[${seg.name}]")
+                                is MessageSegment.BitsPart -> {
+                                    appendInlineContent(seg.url, "[bits]")
+                                    withStyle(SpanStyle(color = Color(0xFFBF94FF), fontWeight = FontWeight.Bold)) {
+                                        append(" ${seg.amount}")
+                                    }
+                                }
+                                is MessageSegment.LinkPart -> {
+                                    pushStringAnnotation(tag = "URL", annotation = seg.url)
+                                    withStyle(SpanStyle(color = TiffanyBlue, textDecoration = TextDecoration.Underline)) {
+                                        append(seg.text)
+                                    }
+                                    pop()
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    var layoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
+
+    Text(
+        text = annotatedText,
+        inlineContent = inlineContent,
+        style = MaterialTheme.typography.bodySmall.copy(
+            color = rowTextColor,
+            fontWeight = FontWeight.Bold,
+            fontSize = fontSize.sp,
+            lineHeight = (fontSize + lineSpacing).sp,
+            shadow = if (textShadow && backgroundColor != "white") Shadow(
+                color = Color.Black,
+                offset = Offset(shadowOffsetX, shadowOffsetY),
+                blurRadius = shadowRadius
+            ) else null
+        ),
+        onTextLayout = { layoutResult = it },
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 1.dp)
+            .background(announcementBgColor, shape = RoundedCornerShape(4.dp))
+            .then(
+                if (isSpecialMessage) Modifier.border(1.dp, announcementBorderColor, RoundedCornerShape(4.dp))
+                else Modifier
+            )
+            .padding(horizontal = 12.dp, vertical = 2.dp)
+            .pointerInput(onResetHideTimer, openLinksInBrowser, annotatedText, onLinkClicked) {
+                detectTapGestures { offset ->
+                    val halfWidth = size.width / 2f
+                    if (offset.x < halfWidth) {
+                        onResetHideTimer?.invoke()
+                    }
+                    if (openLinksInBrowser && onLinkClicked != null) {
+                        layoutResult?.let { textLayoutResult ->
+                            val position = textLayoutResult.getOffsetForPosition(offset)
+                            annotatedText
+                                .getStringAnnotations(tag = "URL", start = position, end = position)
+                                .firstOrNull()
+                                ?.let { annotation ->
+                                    onLinkClicked(annotation.item)
+                                }
+                        }
+                    }
+                }
+            }
+    )
+}
+
+private fun getLocalizedTwitchSystemMessage(message: ChatMessage, lang: String): String {
+    val raw = (message.rawSystemMessage ?: "")
+        .replace(" (tmi.twitch.tv)", "")
+        .replace("(tmi.twitch.tv)", "")
+        .replace("  ", " ")
+        .trim()
+    if (lang != "zh-TW") return raw
+
+    val tags = message.msgParams
+    val msgId = message.twitchMsgId
+    val cleanUsername = message.username
+        .replace(" (tmi.twitch.tv)", "")
+        .replace("(tmi.twitch.tv)", "")
+        .trim()
+    val user = if (cleanUsername == "AnAnonymousGifter" || cleanUsername == "tmi.twitch.tv") "有匿名贈禮人" else cleanUsername
+
+    val months = tags["msg-param-cumulative-months"] ?: tags["msg-param-months"]
+    val recipient = tags["msg-param-recipient-display-name"]
+        ?: tags["msg-param-recipient-user-name"]?.let {
+            val cleanRecipient = it.replace(" (tmi.twitch.tv)", "").replace("(tmi.twitch.tv)", "").trim()
+            if (cleanRecipient == "AnAnonymousGifter" || cleanRecipient == "tmi.twitch.tv") "有匿名贈禮人" else cleanRecipient
+        }
+    val viewCount = tags["msg-param-viewerCount"]
+    val ritualName = tags["msg-param-ritual-name"]
+    val massGiftCount = tags["msg-param-mass-gift-count"]
+    val milestoneCategory = tags["msg-param-category"]
+    val milestoneValue = tags["msg-param-value"]
+
+
+    val tierMap = mapOf("1000" to "層級 1", "2000" to "層級 2", "3000" to "層級 3", "Prime" to "Prime")
+    val tier = tierMap[tags["msg-param-sub-plan"]] ?: "層級 1"
+
+    return when (msgId) {
+        "sub" -> "$user 使用 $tier 訂閱了頻道！"
+        "resub" -> "$user 已使用 $tier 訂閱。這位使用者已經訂閱了 $months 個月！"
+        "subgift" -> "$user 送了一份 $tier 訂閱給 $recipient！"
+        "anonsubgift" -> "有匿名贈禮人 送了一份 $tier 訂閱給 $recipient！"
+        "submysterygift" -> "$user 在頻道社群隨機贈送了 $massGiftCount 個 $tier 訂閱！"
+        "raid" -> "$user 正與 $viewCount 個人一起揪團中。"
+        "ritual" -> if (ritualName == "new_chatter") "歡迎 $user 第一次在聊天室發言！" else "$user 觸發了新活動！"
+        "viewermilestone" -> if (milestoneCategory == "watch-streak") "$user 達成連續觀賞紀錄！$user 目前已連續觀賞 $milestoneValue 場實況！" else raw
+        else -> raw
+    }
+}
+
+private fun getLocalizedYouTubeHeader(message: ChatMessage, lang: String): String {
+    val rawHeader = message.rawSystemMessage ?: if (message.message.startsWith("【SuperChat") || message.message.startsWith("【Super Sticker") || message.message.startsWith("【會員通知")) {
+        val headerEnd = message.message.indexOf('】')
+        if (headerEnd != -1) "✦" + message.message.substring(0, headerEnd + 1) else ""
+    } else if (message.isMembership) "✦【會員通知】" else if (message.isSuperChat) "✦【SuperChat】" else ""
+
+    val isMembership = message.isMembership || rawHeader.contains("會員通知") || message.message.contains("會員通知") || rawHeader.contains("Member Notice") || rawHeader.contains("メンバー通知")
+    val isSticker = rawHeader.contains("Super Sticker") || message.message.contains("Super Sticker") || message.message.contains("超級貼圖") || message.message.contains("スーパーステッカー")
+    val isSuperChat = message.isSuperChat || rawHeader.contains("SuperChat") || message.message.contains("SuperChat") || rawHeader.contains("Super Chat") || rawHeader.contains("スーパーチャット")
+
+    val memberNoticeLabel = when (lang) {
+        "en" -> "Member Notice"
+        "ja" -> "メンバー通知"
+        else -> "會員通知"
+    }
+    val defaultJoinedLabel = when (lang) {
+        "en" -> "Joined membership"
+        "ja" -> "メンバーシップに加入"
+        else -> "加入頻道會員"
+    }
+    val superChatLabel = when (lang) {
+        "en" -> "Super Chat"
+        "ja" -> "スーパーチャット"
+        else -> "SuperChat"
+    }
+    val superStickerLabel = when (lang) {
+        "en" -> "Super Sticker"
+        "ja" -> "スーパーステッカー"
+        else -> "Super Sticker"
+    }
+
+    if (isMembership) {
+        var detail = when {
+            rawHeader.contains("會員通知：") -> rawHeader.substringAfter("會員通知：").removeSuffix("】").trim()
+            rawHeader.contains("Member Notice: ") -> rawHeader.substringAfter("Member Notice: ").removeSuffix("】").trim()
+            rawHeader.contains("メンバー通知：") -> rawHeader.substringAfter("メンバー通知：").removeSuffix("】").trim()
+            else -> ""
+        }
+        if (detail.isEmpty() || detail == "加入頻道會員" || detail == "Joined membership" || detail == "メンバーシップに加入") {
+            detail = defaultJoinedLabel
+        }
+        return "✦【$memberNoticeLabel：$detail】"
+    } else if (isSticker) {
+        val amount = rawHeader.substringAfter("Super Sticker").removeSuffix("】").trim()
+            .ifEmpty { rawHeader.substringAfter("超級貼圖").removeSuffix("】").trim() }
+            .ifEmpty { rawHeader.substringAfter("スーパーステッカー").removeSuffix("】").trim() }
+        val amountStr = if (amount.isNotEmpty()) " $amount" else ""
+        return "✦【$superStickerLabel$amountStr】"
+    } else if (isSuperChat) {
+        val amount = rawHeader.substringAfter("SuperChat").removeSuffix("】").trim()
+            .ifEmpty { rawHeader.substringAfter("Super Chat").removeSuffix("】").trim() }
+            .ifEmpty { rawHeader.substringAfter("スーパーチャット").removeSuffix("】").trim() }
+        val amountStr = if (amount.isNotEmpty()) " $amount" else ""
+        return "✦【$superChatLabel$amountStr】"
+    }
+    
+    return rawHeader.ifEmpty { "✦" }
+}
+
+private fun parseColor(hex: String, fallback: Color): Color {
+    return try {
+        Color(hex.toColorInt())
+    } catch (_: Exception) {
+        fallback
+    }
+}

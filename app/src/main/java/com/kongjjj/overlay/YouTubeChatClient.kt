@@ -1,0 +1,385 @@
+package com.kongjjj.overlay
+
+import android.util.Log
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.isActive
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONObject
+import java.util.UUID
+
+import kotlin.time.Duration.Companion.seconds
+
+class YouTubeChatClient {
+    private val tag = "YouTubeChatClient"
+    private val http = OkHttpClient()
+    private val scope = CoroutineScope(Dispatchers.IO)
+    private var job: Job? = null
+
+    private val _messages = MutableStateFlow<List<ChatMessage>>(emptyList())
+    val messages: StateFlow<List<ChatMessage>> = _messages
+
+    private val _newMessages = MutableSharedFlow<ChatMessage>()
+    val newMessages: SharedFlow<ChatMessage> = _newMessages
+
+    private val _connected = MutableStateFlow(value = false)
+    val connected: StateFlow<Boolean> = _connected
+
+    private var currentChannelId: String? = null
+    private var currentVideoId: String? = null
+    private var apiKey: String? = null
+    private var continuation: String? = null
+
+    var onReconnect: (() -> Unit)? = null
+
+    fun connect(channelId: String) {
+        if (channelId == currentChannelId && _connected.value) return
+        
+        disconnect()
+        currentChannelId = channelId
+        _messages.value = emptyList()
+
+        job = scope.launch {
+            while (isActive) {
+                try {
+                    // If it's a channel ID (starts with UC), resolve it to a live video ID
+                    val videoId = if (channelId.startsWith("UC")) {
+                        resolveLiveVideoId(channelId)
+                    } else {
+                        channelId // Fallback for direct video ID
+                    }
+
+                    if ((videoId != null) && fetchInitialPage(videoId)) {
+                        currentVideoId = videoId
+                        _connected.value = true
+                        pollChat() // This loop runs until failure or cancellation
+                    } else {
+                        Log.e(tag, "Failed to resolve or fetch initial page for: $channelId")
+                        _connected.value = false
+                    }
+                } catch (e: Exception) {
+                    Log.e(tag, "Error connecting to YouTube chat", e)
+                    _connected.value = false
+                }
+                
+                // If we reach here, something failed. Wait before retrying.
+                if (isActive) {
+                    delay(10.seconds)
+                }
+            }
+        }
+    }
+
+    private fun resolveLiveVideoId(channelId: String): String? {
+        val url = "https://www.youtube.com/channel/$channelId/live"
+        val request = Request.Builder().url(url)
+            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+            .build()
+
+        return try {
+            val response = http.newCall(request).execute()
+            // YouTube redirects /live to the watch page. We want the final URL.
+            val finalUrl = response.request.url.toString()
+            
+            // Extract v=VIDEO_ID from URL
+            var videoId = Regex("[?&]v=([^&]+)").find(finalUrl)?.groupValues?.get(1)
+            
+            if (videoId == null) {
+                // Try extracting from HTML if redirect didn't happen as expected
+                val html = response.body.string()
+                videoId = Regex("\"videoId\":\"([^\"]{11})\"").find(html)?.groupValues?.get(1)
+            }
+            
+            videoId
+        } catch (e: Exception) {
+            Log.e(tag, "Error resolving live video ID", e)
+            null
+        }
+    }
+
+    fun disconnect() {
+        job?.cancel()
+        job = null
+        _connected.value = false
+        currentChannelId = null
+        currentVideoId = null
+        apiKey = null
+        continuation = null
+    }
+
+    fun clearMessages() {
+        _messages.value = emptyList()
+        currentChannelId = null
+        currentVideoId = null
+        apiKey = null
+        continuation = null
+    }
+
+    private fun fetchInitialPage(videoId: String): Boolean {
+        val url = "https://www.youtube.com/live_chat?v=$videoId"
+        val request = Request.Builder().url(url)
+            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+            .build()
+
+        return try {
+            val response = http.newCall(request).execute()
+            if (!response.isSuccessful) return false
+            val html = response.body.string()
+
+            apiKey = Regex("\"INNERTUBE_API_KEY\":\"([^\"]+)\"").find(html)?.groupValues?.get(1)
+            
+            // Try to extract the "Live Chat" continuation token from ytInitialData first
+            continuation = extractLiveChatContinuation(html)
+            
+            // Fallback to simple regex if extraction fails
+            if (continuation == null) {
+                continuation = Regex("\"continuation\":\"([^\"]+)\"").find(html)?.groupValues?.get(1)
+            }
+
+            apiKey != null && continuation != null
+        } catch (e: Exception) {
+            Log.e(tag, "Error fetching initial page", e)
+            false
+        }
+    }
+
+    private fun extractLiveChatContinuation(html: String): String? {
+        return try {
+            // Find ytInitialData block
+            val startMarker = "window[\"ytInitialData\"] ="
+            var startPos = html.indexOf(startMarker)
+            if (startPos == -1) {
+                val altStartMarker = "var ytInitialData ="
+                startPos = html.indexOf(altStartMarker)
+                if (startPos == -1) return null
+                startPos += altStartMarker.length
+            } else {
+                startPos += startMarker.length
+            }
+
+            val endPos = html.indexOf(";</script>", startPos)
+            if (endPos == -1) return null
+
+            val jsonString = html.substring(startPos, endPos).trim()
+            val json = JSONObject(jsonString)
+
+            // Path for live_chat popout page
+            val continuationContents = json.optJSONObject("continuationContents")
+            val liveChatContinuation = continuationContents?.optJSONObject("liveChatContinuation")
+
+            val header = liveChatContinuation?.optJSONObject("header")
+                ?: json.optJSONObject("contents")?.optJSONObject("liveChatRenderer")?.optJSONObject("header")
+
+            val subMenuItems = header?.optJSONObject("liveChatHeaderRenderer")
+                ?.optJSONObject("viewSelector")
+                ?.optJSONObject("sortFilterSubMenuRenderer")
+                ?.optJSONArray("subMenuItems")
+
+            if (subMenuItems != null) {
+                for (i in 0 until subMenuItems.length()) {
+                    val item = subMenuItems.getJSONObject(i)
+                    val title = item.optString("title")
+                    val selected = item.optBoolean("selected", false)
+
+                    // We want "Live Chat" (Unfiltered). Usually index 1.
+                    // If selected is true, it's the current view (likely Top Chat).
+                    // We look for one that is NOT selected or specifically titled "Live chat"
+                    if (title.contains("Live chat", ignoreCase = true) || !selected) {
+                        val token = item.optJSONObject("continuation")
+                            ?.optJSONObject("reloadContinuationData")
+                            ?.optString("continuation")
+                        if (token != null) return token
+                    }
+                }
+            }
+            null
+        } catch (e: Exception) {
+            Log.e(tag, "Error extracting Live Chat continuation", e)
+            null
+        }
+    }
+
+    private suspend fun pollChat() {
+        while ((job?.isActive == true) && (apiKey != null) && (continuation != null)) {
+            try {
+                val url = "https://www.youtube.com/youtubei/v1/live_chat/get_live_chat?key=$apiKey"
+                val json = JSONObject().apply {
+                    put("context", JSONObject().apply {
+                        put(
+                            "client",
+                            JSONObject().apply {
+                                put("clientName", "WEB")
+                                put("clientVersion", "2.20210622.10.00")
+                            },
+                        )
+                    })
+                    put("continuation", continuation)
+                }
+
+                val request = Request.Builder()
+                    .url(url)
+                    .post(json.toString().toRequestBody("application/json".toMediaTypeOrNull()))
+                    .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+                    .build()
+
+                val response = http.newCall(request).execute()
+                if (response.isSuccessful) {
+                    val body = response.body.string()
+                    val jsonObj = JSONObject(body)
+                    
+                    val continuationData = jsonObj.optJSONObject("continuationContents")?.optJSONObject("liveChatContinuation")
+                    continuation = continuationData?.optJSONArray("continuations")?.optJSONObject(0)
+                        ?.optJSONObject("invalidationContinuationData")?.optString("continuation")
+                        ?: continuationData?.optJSONArray("continuations")?.optJSONObject(0)
+                        ?.optJSONObject("timedContinuationData")?.optString("continuation")
+
+                    val actions = continuationData?.optJSONArray("actions")
+                    if (actions != null) {
+                        val newMessagesList = mutableListOf<ChatMessage>()
+                        for (i in 0 until actions.length()) {
+                            val action = actions.getJSONObject(i)
+                            val item = action.optJSONObject("addChatItemAction")?.optJSONObject("item")
+                            
+                            // 抓取四種常見的聊天室事件
+                            val textItem = item?.optJSONObject("liveChatTextMessageRenderer")         // 一般留言
+                            val paidItem = item?.optJSONObject("liveChatPaidMessageRenderer")         // Super Chat
+                            val stickerItem = item?.optJSONObject("liveChatPaidStickerRenderer")      // Super Sticker
+                            val membershipItem = item?.optJSONObject("liveChatMembershipItemRenderer")// 會員加入與里程碑
+                            
+                            // 只要是這四種的其中一種，就進行處理
+                            val rendererItem = textItem ?: paidItem ?: stickerItem ?: membershipItem
+                            
+                            if (rendererItem != null) {
+                                val isSuperChat = (paidItem != null || stickerItem != null)
+                                val isMembership = (membershipItem != null)
+
+                                val purchaseAmount = when {
+                                    paidItem != null -> paidItem.optJSONObject("purchaseAmountText")?.optString("simpleText") ?: ""
+                                    stickerItem != null -> stickerItem.optJSONObject("purchaseAmountText")?.optString("simpleText") ?: ""
+                                    else -> ""
+                                }
+
+                                val authorName = rendererItem.optJSONObject("authorName")?.optString("simpleText") ?: "Unknown"
+                                
+                                // Parse badges (共用邏輯：包含頻道主、管理員、會員徽章)
+                                val badgeTags = mutableListOf<String>()
+                                val authorBadges = rendererItem.optJSONArray("authorBadges")
+                                if (authorBadges != null) {
+                                    for (j in 0 until authorBadges.length()) {
+                                        val badge = authorBadges.getJSONObject(j).optJSONObject("liveChatAuthorBadgeRenderer")
+                                        if (badge != null) {
+                                            val customThumbnail = badge.optJSONObject("customThumbnail")
+                                            if (customThumbnail != null) {
+                                                val thumbnails = customThumbnail.optJSONArray("thumbnails")
+                                                val badgeUrl = thumbnails?.optJSONObject(thumbnails.length() - 1)?.optString("url")
+                                                    ?: thumbnails?.optJSONObject(0)?.optString("url")
+                                                if (badgeUrl != null) {
+                                                    val absoluteUrl = if (badgeUrl.startsWith("//")) "https:$badgeUrl" else badgeUrl
+                                                    badgeTags.add(absoluteUrl)
+                                                }
+                                            } else {
+                                                val icon = badge.optJSONObject("icon")
+                                                val iconType = icon?.optString("iconType")
+                                                if (iconType != null) {
+                                                    badgeTags.add("yt-$iconType")
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                val messageParts = rendererItem.optJSONObject("message")?.optJSONArray("runs")
+                                val messageText = StringBuilder()
+                                val youtubeEmotes = mutableMapOf<String, String>()
+                                
+                                if (messageParts != null) {
+                                    for (j in 0 until messageParts.length()) {
+                                        val run = messageParts.getJSONObject(j)
+                                        if (run.has("text")) {
+                                            messageText.append(run.optString("text"))
+                                        } else if (run.has("emoji")) {
+                                            val emoji = run.optJSONObject("emoji")
+                                            val shortcut = emoji?.optJSONArray("shortcuts")?.optString(0) ?: ":emoji:"
+                                            messageText.append(shortcut)
+                                            
+                                            val emoteUrl = emoji?.optJSONObject("image")?.optJSONArray("thumbnails")?.optJSONObject(0)?.optString("url")
+                                            if (emoteUrl != null) {
+                                                youtubeEmotes[shortcut] = emoteUrl
+                                            }
+                                        }
+                                    }
+                                }
+
+                                val timestampUsec = rendererItem.optString("timestampUsec").toLongOrNull() ?: 0L
+                                
+                                val headerTitle = when {
+                                    paidItem != null -> if (purchaseAmount.isNotEmpty()) "✦【SuperChat $purchaseAmount】" else "✦【SuperChat】"
+                                    stickerItem != null -> if (purchaseAmount.isNotEmpty()) "✦【Super Sticker $purchaseAmount】" else "✦【Super Sticker】"
+                                    membershipItem != null -> {
+                                        val headerRuns = membershipItem.optJSONObject("headerPrimaryText")?.optJSONArray("runs")
+                                            ?: membershipItem.optJSONObject("headerSubtext")?.optJSONArray("runs")
+                                        
+                                        val headerText = StringBuilder()
+                                        if (headerRuns != null) {
+                                            for (j in 0 until headerRuns.length()) {
+                                                headerText.append(headerRuns.getJSONObject(j).optString("text"))
+                                            }
+                                        } else {
+                                            headerText.append("加入頻道會員")
+                                        }
+                                        "✦【會員通知：$headerText】"
+                                    }
+                                    else -> null
+                                }
+
+                                val rawMessageText = when {
+                                    stickerItem != null && messageText.isEmpty() -> "[超級貼圖]"
+                                    else -> messageText.toString().trim()
+                                }
+                                
+                                newMessagesList.add(
+                                    ChatMessage(
+                                        id = UUID.randomUUID().toString(),
+                                        username = authorName,
+                                        message = rawMessageText,
+                                        rawSystemMessage = headerTitle,
+                                        badgeTags = badgeTags,
+                                        youtubeEmotes = youtubeEmotes,
+                                        timestamp = timestampUsec / 1000,
+                                        platform = "youtube",
+                                        isSuperChat = isSuperChat,
+                                        isMembership = isMembership,
+                                    ),
+                                )
+                            }
+                        }
+                        if (newMessagesList.isNotEmpty()) {
+                            // Filter out messages we already have
+                            val existingIds = _messages.value.map { it.id }.toSet()
+                            val uniqueNewMessages = newMessagesList.filter { it.id !in existingIds }
+                            
+                            if (uniqueNewMessages.isNotEmpty()) {
+                                _messages.value = (_messages.value + uniqueNewMessages).takeLast(MAX_CHAT_MESSAGES)
+                                uniqueNewMessages.forEach { msg -> scope.launch { _newMessages.emit(msg) } }
+                            }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(tag, "Error polling chat", e)
+                onReconnect?.invoke()
+            }
+            delay(5.seconds) // Poll every 5 seconds to avoid rate limiting
+        }
+    }
+}
