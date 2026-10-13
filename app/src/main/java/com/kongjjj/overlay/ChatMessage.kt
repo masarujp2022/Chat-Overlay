@@ -31,4 +31,3 @@ data class StreamInfo(
     val category: String? = null
 )
 
-
