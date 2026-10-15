@@ -4,7 +4,7 @@
 
 <h1>Chat Overlay</h1>
 
-A no need login Android Transparent Youtube/Twitch Chat viewer app for IRL streaming.
+A no need login Android Transparent Youtube/Twitch/Kick Chat viewer app for IRL streaming.
 <br><br>
 [![Twitch](https://img.shields.io/badge/Twitch-9146FF?style=for-the-badge&logo=twitch&logoColor=white)](https://twitch.tv)
 [![YouTube](https://img.shields.io/badge/YouTube-FF0000?style=for-the-badge&logo=youtube&logoColor=white)](https://youtube.com)
@@ -20,7 +20,7 @@ A no need login Android Transparent Youtube/Twitch Chat viewer app for IRL strea
 
 ## Features
 
-- ✔️ Display in Twitch and YouTube chatrooms.
+- ✔️ Display in Twitch, YouTube and Kick chatrooms.
 - ✔️ Text-to-Speech reading of chat messages, Chat hyperlinks can be clicked to pop up a browser.
 - ✔️ 3 language options: Traditional Chinese, English, and Japanese.
 - ✔️ Font size, shadow, line spacing, usernames, and emoji size can be adjusted individually.
@@ -30,6 +30,7 @@ A no need login Android Transparent Youtube/Twitch Chat viewer app for IRL strea
 - ✔️ Display support for Twitch channel announcements, watch streaks, subscriptions, raids, and other special messages.
 - ✔️ Notification display for YouTube Super Chats, Super Stickers, and Channel Memberships.
 - ✔️ YouTube viewer count display.
+- ✔️ Kick viewer count display.
   
 ![Chat-Overlay](pics/Screenshot_7EN.jpg)
 
