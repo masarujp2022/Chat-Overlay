@@ -12,8 +12,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
@@ -27,7 +29,8 @@ data class KickChannelInfo(
     val userId: String?,
     val viewersCount: Int = 0,
     val title: String? = null,
-    val category: String? = null
+    val category: String? = null,
+    val pusherWsUrl: String? = null
 )
 
 class KickChatClient {
@@ -74,7 +77,12 @@ class KickChatClient {
                         chatroomId = info.chatroomId
                         chatroomChannelId = info.chatroomChannelId
                         userId = info.userId
-                        openWebSocket(info.chatroomId, info.chatroomChannelId)
+                        
+                        val wsUrl = info.pusherWsUrl
+                            ?: fetchDynamicPusherUrl(info.chatroomChannelId)
+                            ?: "wss://ws-us2.pusher.com/app/34bf7a0ff419a2a775b9?protocol=7&client=js&version=8.4.0-picker&flash=false"
+                        
+                        openWebSocket(wsUrl, info.chatroomId, info.chatroomChannelId)
                         break
                     } else {
                         Log.e(tag, "Failed to resolve Kick channel info for $normalized")
@@ -141,13 +149,16 @@ class KickChatClient {
 
                 Log.d(tag, "Resolved Kick $slug -> chatroomId=$chatroomId, chatroomChannelId=$chatroomChannelId, userId=$userId, viewers=$viewers")
 
+                val dynamicWsUrl = fetchDynamicPusherUrl(chatroomChannelId)
+
                 KickChannelInfo(
                     chatroomId = chatroomId,
                     chatroomChannelId = chatroomChannelId,
                     userId = userId,
                     viewersCount = viewers,
                     title = title,
-                    category = category
+                    category = category,
+                    pusherWsUrl = dynamicWsUrl
                 )
             }
         } catch (e: Exception) {
@@ -156,9 +167,45 @@ class KickChatClient {
         }
     }
 
-    private fun openWebSocket(roomId: String, channelId: String) {
-        val url = "wss://ws-us2.pusher.com/app/32cbd69e4b950bf97679?protocol=7&client=js&version=8.4.0-picker&flash=false"
-        val req = Request.Builder().url(url).build()
+    private fun fetchDynamicPusherUrl(channelId: String): String? {
+        return try {
+            val body = """{"client":{"id":"${UUID.randomUUID()}","type":"web"},"capabilities":{"accepted_providers":[{"provider":"pusher"}]}}"""
+                .toRequestBody("application/json".toMediaType())
+            val req = Request.Builder()
+                .url("https://web.kick.com/api/v1/realtime/channels/$channelId/chat/connection")
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36")
+                .header("Accept", "application/json")
+                .header("Referer", "https://kick.com/")
+                .post(body)
+                .build()
+
+            http.newCall(req).execute().use { resp ->
+                if (!resp.isSuccessful) return null
+                val raw = resp.body?.string() ?: return null
+                val root = JSONObject(raw)
+                val dataObj = root.optJSONObject("data")
+                val conns = dataObj?.optJSONArray("connections")
+                if (conns != null && conns.length() > 0) {
+                    val conn = conns.getJSONObject(0)
+                    val creds = conn.optJSONObject("credentials")
+                    val appKey = creds?.optString("app_key")
+                    val cluster = creds?.optString("cluster", "us2")
+                    if (!appKey.isNullOrBlank()) {
+                        Log.d(tag, "Fetched dynamic Pusher credentials: key=$appKey, cluster=$cluster")
+                        return "wss://ws-$cluster.pusher.com/app/$appKey?protocol=7&client=js&version=8.4.0-picker&flash=false"
+                    }
+                }
+                null
+            }
+        } catch (e: Exception) {
+            Log.e(tag, "Failed to fetch dynamic Pusher credentials", e)
+            null
+        }
+    }
+
+    private fun openWebSocket(wsUrl: String, roomId: String, channelId: String) {
+        Log.d(tag, "Connecting to Kick Pusher WS: $wsUrl")
+        val req = Request.Builder().url(wsUrl).build()
 
         fun sendSubscriptions(ws: WebSocket) {
             listOf(
@@ -235,21 +282,37 @@ class KickChatClient {
                     val identity = sender?.optJSONObject("identity")
                     val colorHex = identity?.optString("color")?.takeIf { it.isNotBlank() }
 
-                    val badgesArr = identity?.optJSONArray("badges")
                     val badgeTags = mutableListOf<String>()
-                    if (badgesArr != null) {
-                        for (i in 0 until badgesArr.length()) {
-                            val b = badgesArr.optJSONObject(i) ?: continue
-                            val type = b.optString("type")
-                            val active = b.optBoolean("active", true)
-                            if (active) {
-                                val badgeObj = b.optJSONObject("badge")
-                                val imageUrl = badgeObj?.optString("url")?.takeIf { it.isNotBlank() }
-                                    ?: badgeObj?.optString("image")?.takeIf { it.isNotBlank() }
-                                if (imageUrl != null) {
-                                    badgeTags.add(imageUrl)
-                                } else if (type.isNotBlank()) {
-                                    badgeTags.add("kick-$type")
+
+                    // Check badges_v2 first (contains direct image_url)
+                    val badgesV2Arr = identity?.optJSONArray("badges_v2")
+                    if (badgesV2Arr != null && badgesV2Arr.length() > 0) {
+                        for (i in 0 until badgesV2Arr.length()) {
+                            val b = badgesV2Arr.optJSONObject(i) ?: continue
+                            val imgUrl = b.optString("image_url")
+                            if (imgUrl.isNotBlank()) {
+                                badgeTags.add(imgUrl)
+                            }
+                        }
+                    }
+
+                    // Fallback to badges array if badges_v2 is missing or empty
+                    if (badgeTags.isEmpty()) {
+                        val badgesArr = identity?.optJSONArray("badges")
+                        if (badgesArr != null) {
+                            for (i in 0 until badgesArr.length()) {
+                                val b = badgesArr.optJSONObject(i) ?: continue
+                                val type = b.optString("type")
+                                val active = b.optBoolean("active", true)
+                                if (active) {
+                                    val badgeObj = b.optJSONObject("badge")
+                                    val imageUrl = badgeObj?.optString("url")?.takeIf { it.isNotBlank() }
+                                        ?: badgeObj?.optString("image")?.takeIf { it.isNotBlank() }
+                                    if (imageUrl != null) {
+                                        badgeTags.add(imageUrl)
+                                    } else if (type.isNotBlank()) {
+                                        badgeTags.add("kick-$type")
+                                    }
                                 }
                             }
                         }
