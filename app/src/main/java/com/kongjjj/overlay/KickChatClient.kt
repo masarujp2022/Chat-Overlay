@@ -93,6 +93,7 @@ class KickChatClient {
     suspend fun resolveChannelInfo(slug: String): KickChannelInfo? = withContext(Dispatchers.IO) {
         if (slug.isBlank()) return@withContext null
         try {
+            Log.d(tag, "Resolving Kick channel info for slug: $slug")
             val request = Request.Builder()
                 .url("https://kick.com/api/v1/channels/${slug.lowercase().trim()}")
                 .addHeader(
@@ -103,20 +104,23 @@ class KickChatClient {
                 .build()
 
             http.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) return@use null
+                if (!response.isSuccessful) {
+                    Log.e(tag, "Kick channel API failed with HTTP code: ${response.code}")
+                    return@use null
+                }
                 val body = response.body?.string() ?: return@use null
                 if (body.isBlank()) return@use null
 
                 val root = JSONObject(body)
-                val userId = root.optLong("user_id", 0L).takeIf { it > 0 }?.toString()
-                    ?: root.optString("user_id").takeIf { it.isNotBlank() }
+                val userId = root.opt("user_id")?.toString()?.takeIf { it != "null" && it.isNotBlank() }
                 val chatroomObj = root.optJSONObject("chatroom")
-                val chatroomId = chatroomObj?.optLong("id", 0L)?.takeIf { it > 0 }?.toString()
-                    ?: chatroomObj?.optString("id")?.takeIf { it.isNotBlank() }
-                val chatroomChannelId = chatroomObj?.optLong("channel_id", 0L)?.takeIf { it > 0 }?.toString()
-                    ?: chatroomObj?.optString("channel_id")?.takeIf { it.isNotBlank() }
+                val chatroomId = chatroomObj?.opt("id")?.toString()?.takeIf { it != "null" && it.isNotBlank() }
+                val chatroomChannelId = chatroomObj?.opt("channel_id")?.toString()?.takeIf { it != "null" && it.isNotBlank() }
 
-                if (chatroomId == null || chatroomChannelId == null) return@use null
+                if (chatroomId == null || chatroomChannelId == null) {
+                    Log.e(tag, "Could not extract chatroomId or chatroomChannelId for $slug")
+                    return@use null
+                }
 
                 val livestreamObj = root.optJSONObject("livestream")
                 var viewers = 0
@@ -134,6 +138,8 @@ class KickChatClient {
                         category = catObj?.optString("name")?.ifBlank { null }
                     }
                 }
+
+                Log.d(tag, "Resolved Kick $slug -> chatroomId=$chatroomId, chatroomChannelId=$chatroomChannelId, userId=$userId, viewers=$viewers")
 
                 KickChannelInfo(
                     chatroomId = chatroomId,
@@ -154,36 +160,43 @@ class KickChatClient {
         val url = "wss://ws-us2.pusher.com/app/32cbd69e4b950bf97679?protocol=7&client=js&version=8.4.0-picker&flash=false"
         val req = Request.Builder().url(url).build()
 
+        fun sendSubscriptions(ws: WebSocket) {
+            listOf(
+                "chatrooms.$roomId.v2",
+                "chatroom_$roomId",
+                "chatrooms.$roomId",
+                "channel_$channelId"
+            ).forEach { ch ->
+                ws.send("""{"event":"pusher:subscribe","data":{"auth":"","channel":"$ch"}}""")
+            }
+        }
+
         webSocket = http.newWebSocket(req, object : WebSocketListener() {
             override fun onOpen(ws: WebSocket, response: Response) {
+                Log.d(tag, "Kick Pusher WebSocket connected")
                 _connected.value = true
-                listOf(
-                    "chatrooms.$roomId.v2",
-                    "chatroom_$roomId",
-                    "chatrooms.$roomId",
-                    "channel_$channelId"
-                ).forEach { ch ->
-                    ws.send("""{"event":"pusher:subscribe","data":{"auth":"","channel":"$ch"}}""")
-                }
+                sendSubscriptions(ws)
             }
 
             override fun onMessage(ws: WebSocket, text: String) {
-                handleFrame(ws, text)
+                handleFrame(ws, text, roomId, channelId)
             }
 
             override fun onClosed(ws: WebSocket, code: Int, reason: String) {
+                Log.d(tag, "Kick WebSocket closed: $code / $reason")
                 _connected.value = false
                 scheduleReconnect()
             }
 
             override fun onFailure(ws: WebSocket, t: Throwable, response: Response?) {
+                Log.e(tag, "Kick WebSocket failure", t)
                 _connected.value = false
                 scheduleReconnect()
             }
         })
     }
 
-    private fun handleFrame(ws: WebSocket, raw: String) {
+    private fun handleFrame(ws: WebSocket, raw: String, roomId: String, channelId: String) {
         try {
             val root = JSONObject(raw)
             val event = root.optString("event")
@@ -193,14 +206,32 @@ class KickChatClient {
                 return
             }
 
-            if (event == "App\\Events\\ChatMessageEvent") {
-                val dataStr = root.optString("data")
-                if (dataStr.isNotBlank()) {
-                    val dataObj = JSONObject(dataStr)
-                    val msgId = dataObj.optString("id")
-                    val content = dataObj.optString("content")
+            if (event == "pusher:connection_established") {
+                listOf(
+                    "chatrooms.$roomId.v2",
+                    "chatroom_$roomId",
+                    "chatrooms.$roomId",
+                    "channel_$channelId"
+                ).forEach { ch ->
+                    ws.send("""{"event":"pusher:subscribe","data":{"auth":"","channel":"$ch"}}""")
+                }
+                return
+            }
+
+            if (event.contains("ChatMessage")) {
+                val dataObj: JSONObject? = when {
+                    root.optJSONObject("data") != null -> root.optJSONObject("data")
+                    root.optString("data").isNotBlank() -> runCatching { JSONObject(root.getString("data")) }.getOrNull()
+                    else -> null
+                }
+
+                if (dataObj != null) {
+                    val msgId = dataObj.optString("id").ifBlank { UUID.randomUUID().toString() }
+                    val content = dataObj.optString("content").ifBlank { dataObj.optString("message") }
                     val sender = dataObj.optJSONObject("sender")
-                    val username = sender?.optString("username") ?: "Unknown"
+                    val username = sender?.optString("username")?.ifBlank { null }
+                        ?: sender?.optString("slug")
+                        ?: "Unknown"
                     val identity = sender?.optJSONObject("identity")
                     val colorHex = identity?.optString("color")?.takeIf { it.isNotBlank() }
 
@@ -208,13 +239,14 @@ class KickChatClient {
                     val badgeTags = mutableListOf<String>()
                     if (badgesArr != null) {
                         for (i in 0 until badgesArr.length()) {
-                            val b = badgesArr.getJSONObject(i)
+                            val b = badgesArr.optJSONObject(i) ?: continue
                             val type = b.optString("type")
                             val active = b.optBoolean("active", true)
                             if (active) {
                                 val badgeObj = b.optJSONObject("badge")
-                                val imageUrl = badgeObj?.optString("url") ?: badgeObj?.optString("image")
-                                if (!imageUrl.isNullOrBlank()) {
+                                val imageUrl = badgeObj?.optString("url")?.takeIf { it.isNotBlank() }
+                                    ?: badgeObj?.optString("image")?.takeIf { it.isNotBlank() }
+                                if (imageUrl != null) {
                                     badgeTags.add(imageUrl)
                                 } else if (type.isNotBlank()) {
                                     badgeTags.add("kick-$type")
@@ -224,7 +256,7 @@ class KickChatClient {
                     }
 
                     val msg = ChatMessage(
-                        id = msgId.ifBlank { UUID.randomUUID().toString() },
+                        id = msgId,
                         username = username,
                         message = content,
                         color = colorHex,
@@ -235,14 +267,18 @@ class KickChatClient {
                     _messages.value = (_messages.value + msg).takeLast(MAX_CHAT_MESSAGES)
                     scope.launch { _newMessages.emit(msg) }
                 }
-            } else if (event == "App\\Events\\SubscriptionEvent" || event == "App\\Events\\GiftedSubscriptionsEvent") {
-                val dataStr = root.optString("data")
-                if (dataStr.isNotBlank()) {
-                    val dataObj = JSONObject(dataStr)
+            } else if (event.contains("Subscription") || event.contains("GiftedSubscriptions")) {
+                val dataObj: JSONObject? = when {
+                    root.optJSONObject("data") != null -> root.optJSONObject("data")
+                    root.optString("data").isNotBlank() -> runCatching { JSONObject(root.getString("data")) }.getOrNull()
+                    else -> null
+                }
+
+                if (dataObj != null) {
                     val username = dataObj.optString("username", dataObj.optString("gifter_username", "KickUser"))
                     val months = dataObj.optInt("months", 1)
                     val giftCount = dataObj.optInt("gift_count", 1)
-                    val noticeText = if (event == "App\\Events\\GiftedSubscriptionsEvent") {
+                    val noticeText = if (event.contains("GiftedSubscriptions")) {
                         "✦【$username 贈送了 $giftCount 個 Kick 訂閱】"
                     } else {
                         "✦【$username 訂閱了 Kick 頻道（$months 個月）】"
