@@ -116,7 +116,7 @@ class KickChatClient {
                     Log.e(tag, "Kick channel API failed with HTTP code: ${response.code}")
                     return@use null
                 }
-                val body = response.body?.string() ?: return@use null
+                val body = response.body.string()
                 if (body.isBlank()) return@use null
 
                 val root = JSONObject(body)
@@ -181,7 +181,7 @@ class KickChatClient {
 
             http.newCall(req).execute().use { resp ->
                 if (!resp.isSuccessful) return null
-                val raw = resp.body?.string() ?: return null
+                val raw = resp.body.string()
                 val root = JSONObject(raw)
                 val dataObj = root.optJSONObject("data")
                 val conns = dataObj?.optJSONArray("connections")
@@ -219,23 +219,23 @@ class KickChatClient {
         }
 
         webSocket = http.newWebSocket(req, object : WebSocketListener() {
-            override fun onOpen(ws: WebSocket, response: Response) {
+            override fun onOpen(webSocket: WebSocket, response: Response) {
                 Log.d(tag, "Kick Pusher WebSocket connected")
                 _connected.value = true
-                sendSubscriptions(ws)
+                sendSubscriptions(webSocket)
             }
 
-            override fun onMessage(ws: WebSocket, text: String) {
-                handleFrame(ws, text, roomId, channelId)
+            override fun onMessage(webSocket: WebSocket, text: String) {
+                handleFrame(webSocket, text, roomId, channelId)
             }
 
-            override fun onClosed(ws: WebSocket, code: Int, reason: String) {
+            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                 Log.d(tag, "Kick WebSocket closed: $code / $reason")
                 _connected.value = false
                 scheduleReconnect()
             }
 
-            override fun onFailure(ws: WebSocket, t: Throwable, response: Response?) {
+            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                 Log.e(tag, "Kick WebSocket failure", t)
                 _connected.value = false
                 scheduleReconnect()

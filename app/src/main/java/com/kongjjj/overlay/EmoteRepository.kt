@@ -81,7 +81,7 @@ class EmoteRepository {
     private fun get(url: String): String? = try {
         val req = Request.Builder().url(url).build()
         http.newCall(req).execute().use { resp ->
-            if (resp.isSuccessful) resp.body?.string() else null
+            if (resp.isSuccessful) resp.body.string() else null
         }
     } catch (_: Exception) { null }
 
@@ -374,7 +374,7 @@ fun parseMessageSegments(
     }
 }
 
-private val kickEmoteRegex = Regex("""\[emote:(\d+):([^\]]+)]""")
+private val kickEmoteRegex = Regex("""\[emote:(\d+):([^]]+)]""")
 
 private fun scanKickEmotes(text: String): List<MessageSegment> {
     val result = mutableListOf<MessageSegment>()
