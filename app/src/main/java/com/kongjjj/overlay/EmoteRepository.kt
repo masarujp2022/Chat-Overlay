@@ -39,7 +39,8 @@ class EmoteRepository {
         enableBttv: Boolean = true,
         enableFfz: Boolean = true,
         twitchChannelId: String? = null,
-        twitchChannelName: String? = null
+        twitchChannelName: String? = null,
+        kickUserId: String? = null
     ) = withContext(Dispatchers.IO) {
         _thirdPartyEmotes.value = emptyMap()
 
@@ -57,6 +58,10 @@ class EmoteRepository {
         // Load channel specific emotes if available
         if (!twitchChannelId.isNullOrBlank()) {
             loadProvider(enable7tv) { fetch7TVChannel(twitchChannelId) }
+        }
+
+        if (!kickUserId.isNullOrBlank()) {
+            loadProvider(enable7tv) { fetch7TVKickChannel(kickUserId) }
         }
         
         if (!twitchChannelId.isNullOrBlank()) {
@@ -76,7 +81,7 @@ class EmoteRepository {
     private fun get(url: String): String? = try {
         val req = Request.Builder().url(url).build()
         http.newCall(req).execute().use { resp ->
-            if (resp.isSuccessful) resp.body.string() else null
+            if (resp.isSuccessful) resp.body?.string() else null
         }
     } catch (_: Exception) { null }
 
@@ -178,9 +183,18 @@ class EmoteRepository {
         return map
     }
 
-    // ── 7TV channel emotes ────────────────────────────────────────────────────
+    // ── 7TV channel emotes (Twitch) ───────────────────────────────────────────
     private fun fetch7TVChannel(channelId: String): Map<String, String> {
         val body = get("https://7tv.io/v3/users/twitch/$channelId") ?: return emptyMap()
+        val root = JsonParser.parseString(body).takeIf { it.isJsonObject }?.asJsonObject
+            ?: return emptyMap()
+        val arr  = root.getAsJsonObject("emote_set")?.getAsJsonArray("emotes") ?: return emptyMap()
+        return parse7tvEmoteArray(arr)
+    }
+
+    // ── 7TV channel emotes (Kick) ─────────────────────────────────────────────
+    private fun fetch7TVKickChannel(kickUserId: String): Map<String, String> {
+        val body = get("https://7tv.io/v3/users/kick/$kickUserId") ?: return emptyMap()
         val root = JsonParser.parseString(body).takeIf { it.isJsonObject }?.asJsonObject
             ?: return emptyMap()
         val arr  = root.getAsJsonObject("emote_set")?.getAsJsonArray("emotes") ?: return emptyMap()
@@ -331,8 +345,14 @@ fun parseMessageSegments(
         if (tail.isNotEmpty()) stage1.add(MessageSegment.TextPart(tail))
     }
 
+    // Stage 1.5: Kick Native Emotes ([emote:37226:KEKW])
+    val stage1Half = stage1.flatMap { seg ->
+        if (seg is MessageSegment.TextPart) scanKickEmotes(seg.text)
+        else listOf(seg)
+    }
+
     // Stage 2: YouTube Emotes (No strict boundaries)
-    val stage2 = stage1.flatMap { seg ->
+    val stage2 = stage1Half.flatMap { seg ->
         if (seg is MessageSegment.TextPart) scanWords(seg.text, youtubeEmotes, useStrictBoundaries = false)
         else listOf(seg)
     }
@@ -352,6 +372,35 @@ fun parseMessageSegments(
         if (seg is MessageSegment.TextPart) scanForLinks(seg.text)
         else listOf(seg)
     }
+}
+
+private val kickEmoteRegex = Regex("""\[emote:(\d+):([^\]]+)]""")
+
+private fun scanKickEmotes(text: String): List<MessageSegment> {
+    val result = mutableListOf<MessageSegment>()
+    var cursor = 0
+    val matches = kickEmoteRegex.findAll(text)
+
+    for (match in matches) {
+        val start = match.range.first
+        val end = match.range.last + 1
+
+        if (start > cursor) {
+            result.add(MessageSegment.TextPart(text.substring(cursor, start)))
+        }
+
+        val emoteId = match.groupValues[1]
+        val emoteName = match.groupValues[2]
+        val url = "https://files.kick.com/emotes/$emoteId/fullsize"
+        result.add(MessageSegment.EmotePart(emoteName, url))
+        cursor = end
+    }
+
+    if (cursor < text.length) {
+        result.add(MessageSegment.TextPart(text.substring(cursor)))
+    }
+
+    return result
 }
 
 private fun scanForBits(text: String): List<MessageSegment> {

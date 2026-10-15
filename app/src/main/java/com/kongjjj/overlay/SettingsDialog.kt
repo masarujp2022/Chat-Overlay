@@ -33,6 +33,7 @@ import kotlin.math.roundToInt
 fun SettingsDialog(
     twitchChannel: String,
     youtubeChannelId: String,
+    kickChannel: String = "",
     chatFontSize: Float,
     chatLineSpacing: Float,
     chatEmoteSize: Float,
@@ -55,6 +56,7 @@ fun SettingsDialog(
     normalMessageColor: String = DEFAULT_NORMAL_MESSAGE_COLOR,
     twitchNoticeColor: String = DEFAULT_TWITCH_NOTICE_COLOR,
     youtubeNoticeColor: String = DEFAULT_YOUTUBE_NOTICE_COLOR,
+    kickNoticeColor: String = DEFAULT_KICK_NOTICE_COLOR,
     ttsEnabled: Boolean,
     ttsLanguage: String,
     ttsIgnoreSender: Boolean,
@@ -63,6 +65,7 @@ fun SettingsDialog(
     ttsOnlySubOrCheer: Boolean,
     onSaveChannel: (String) -> Unit,
     onSaveYoutubeChannelId: (String) -> Unit,
+    onSaveKickChannel: (String) -> Unit = {},
     onFontSizeChange: (Float) -> Unit,
     onLineSpacingChange: (Float) -> Unit,
     onEmoteSizeChange: (Float) -> Unit,
@@ -75,6 +78,7 @@ fun SettingsDialog(
     onNormalMessageColorChange: (String) -> Unit = {},
     onTwitchNoticeColorChange: (String) -> Unit = {},
     onYoutubeNoticeColorChange: (String) -> Unit = {},
+    onKickNoticeColorChange: (String) -> Unit = {},
     onShowTimestampChange: (Boolean) -> Unit,
     onShowStreamInfoChange: (Boolean) -> Unit,
     onShowStreamTitleChange: (Boolean) -> Unit = {},
@@ -127,6 +131,7 @@ fun SettingsDialog(
                     SettingsContent(
                         twitchChannel = twitchChannel,
                         youtubeChannelId = youtubeChannelId,
+                        kickChannel = kickChannel,
                         chatFontSize = chatFontSize,
                         chatLineSpacing = chatLineSpacing,
                         chatEmoteSize = chatEmoteSize,
@@ -149,6 +154,7 @@ fun SettingsDialog(
                         normalMessageColor = normalMessageColor,
                         twitchNoticeColor = twitchNoticeColor,
                         youtubeNoticeColor = youtubeNoticeColor,
+                        kickNoticeColor = kickNoticeColor,
                         ttsEnabled = ttsEnabled,
                         ttsLanguage = ttsLanguage,
                         ttsIgnoreSender = ttsIgnoreSender,
@@ -157,6 +163,7 @@ fun SettingsDialog(
                         ttsOnlySubOrCheer = ttsOnlySubOrCheer,
                         onSaveChannel = onSaveChannel,
                         onSaveYoutubeChannelId = onSaveYoutubeChannelId,
+                        onSaveKickChannel = onSaveKickChannel,
                         onFontSizeChange = onFontSizeChange,
                         onLineSpacingChange = onLineSpacingChange,
                         onEmoteSizeChange = onEmoteSizeChange,
@@ -169,6 +176,7 @@ fun SettingsDialog(
                         onNormalMessageColorChange = onNormalMessageColorChange,
                         onTwitchNoticeColorChange = onTwitchNoticeColorChange,
                         onYoutubeNoticeColorChange = onYoutubeNoticeColorChange,
+                        onKickNoticeColorChange = onKickNoticeColorChange,
                         onShowTimestampChange = onShowTimestampChange,
                         onShowStreamInfoChange = onShowStreamInfoChange,
                         onShowStreamTitleChange = onShowStreamTitleChange,
@@ -195,6 +203,7 @@ fun SettingsDialog(
 fun SettingsContent(
     twitchChannel: String,
     youtubeChannelId: String,
+    kickChannel: String = "",
     chatFontSize: Float,
     chatLineSpacing: Float,
     chatEmoteSize: Float,
@@ -217,6 +226,7 @@ fun SettingsContent(
     normalMessageColor: String = DEFAULT_NORMAL_MESSAGE_COLOR,
     twitchNoticeColor: String = DEFAULT_TWITCH_NOTICE_COLOR,
     youtubeNoticeColor: String = DEFAULT_YOUTUBE_NOTICE_COLOR,
+    kickNoticeColor: String = DEFAULT_KICK_NOTICE_COLOR,
     ttsEnabled: Boolean,
     ttsLanguage: String,
     ttsIgnoreSender: Boolean,
@@ -225,6 +235,7 @@ fun SettingsContent(
     ttsOnlySubOrCheer: Boolean,
     onSaveChannel: (String) -> Unit,
     onSaveYoutubeChannelId: (String) -> Unit,
+    onSaveKickChannel: (String) -> Unit = {},
     onFontSizeChange: (Float) -> Unit,
     onLineSpacingChange: (Float) -> Unit,
     onEmoteSizeChange: (Float) -> Unit,
@@ -237,6 +248,7 @@ fun SettingsContent(
     onNormalMessageColorChange: (String) -> Unit = {},
     onTwitchNoticeColorChange: (String) -> Unit = {},
     onYoutubeNoticeColorChange: (String) -> Unit = {},
+    onKickNoticeColorChange: (String) -> Unit = {},
     onShowTimestampChange: (Boolean) -> Unit,
     onShowStreamInfoChange: (Boolean) -> Unit,
     onShowStreamTitleChange: (Boolean) -> Unit = {},
@@ -255,6 +267,7 @@ fun SettingsContent(
 ) {
     var channelInput by remember(twitchChannel) { mutableStateOf(twitchChannel) }
     var youtubeInput by remember(youtubeChannelId) { mutableStateOf(youtubeChannelId) }
+    var kickInput by remember(kickChannel) { mutableStateOf(kickChannel) }
     val keyboardController = LocalSoftwareKeyboardController.current
     val context = LocalContext.current
 
@@ -319,6 +332,37 @@ fun SettingsContent(
                     onClick = {
                         val trimmed = youtubeInput.trim()
                         onSaveYoutubeChannelId(trimmed)
+                        keyboardController?.hide()
+                        Toast.makeText(context, getLabel("Saved", appLanguage), Toast.LENGTH_SHORT).show()
+                    }
+                ) { Text(getLabel("Save", appLanguage)) }
+            }
+        }
+
+        // Kick Channel
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(getLabel("Kick Channel", appLanguage), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(
+                    value = kickInput,
+                    onValueChange = { kickInput = it },
+                    placeholder = { Text(getLabel("Channel Name", appLanguage)) },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(
+                        onDone = {
+                            val trimmed = kickInput.trim().lowercase().removePrefix("/")
+                            onSaveKickChannel(trimmed)
+                            keyboardController?.hide()
+                            Toast.makeText(context, getLabel("Saved", appLanguage), Toast.LENGTH_SHORT).show()
+                        },
+                    )
+                )
+                FilledTonalButton(
+                    onClick = {
+                        val trimmed = kickInput.trim().lowercase().removePrefix("/")
+                        onSaveKickChannel(trimmed)
                         keyboardController?.hide()
                         Toast.makeText(context, getLabel("Saved", appLanguage), Toast.LENGTH_SHORT).show()
                     }
@@ -424,6 +468,12 @@ fun SettingsContent(
                 title = getLabel("YouTube Notice Color", appLanguage),
                 selectedColorHex = youtubeNoticeColor,
                 onColorSelected = onYoutubeNoticeColorChange
+            )
+
+            ColorSettingItem(
+                title = getLabel("Kick Notice Color", appLanguage),
+                selectedColorHex = kickNoticeColor,
+                onColorSelected = onKickNoticeColorChange
             )
         }
 
@@ -620,6 +670,7 @@ fun getLabel(key: String, lang: String): String {
         "Close" to mapOf("zh-TW" to "關閉", "en" to "Close", "ja" to "閉じる"),
         "Twitch Channel" to mapOf("zh-TW" to "Twitch 頻道", "en" to "Twitch Channel", "ja" to "Twitchチャンネル"),
         "YouTube Channel ID" to mapOf("zh-TW" to "YouTube 頻道 ID", "en" to "YouTube Channel ID", "ja" to "YouTubeチャンネルID"),
+        "Kick Channel" to mapOf("zh-TW" to "Kick 頻道", "en" to "Kick Channel", "ja" to "Kickチャンネル"),
         "Channel Name" to mapOf("zh-TW" to "頻道名稱", "en" to "Channel Name", "ja" to "チャンネル名"),
         "Save" to mapOf("zh-TW" to "儲存", "en" to "Save", "ja" to "保存"),
         "Saved" to mapOf("zh-TW" to "已儲存", "en" to "Saved", "ja" to "保存されました"),
@@ -654,6 +705,7 @@ fun getLabel(key: String, lang: String): String {
         "Shadow Offset Y" to mapOf("zh-TW" to "陰影偏移 Y", "en" to "Shadow Offset Y", "ja" to "影のオフセット Y"),
         "reconnecting_twitch" to mapOf("zh-TW" to "正在連線Twitch聊天室", "en" to "Connecting to Twitch chat room", "ja" to "Twitchチャットルームに接続中"),
         "reconnecting_youtube" to mapOf("zh-TW" to "正在連線YouTube聊天室", "en" to "Connecting to YouTube chat room", "ja" to "YouTubeチャットルームに接続中"),
+        "reconnecting_kick" to mapOf("zh-TW" to "正在連線Kick聊天室", "en" to "Connecting to Kick chat room", "ja" to "Kickチャットルームに接続中"),
         "Member Notice" to mapOf("zh-TW" to "會員通知", "en" to "Member Notice", "ja" to "メンバー通知"),
         "Joined Membership" to mapOf("zh-TW" to "加入頻道會員", "en" to "Joined membership", "ja" to "メンバーシップに加入"),
         "Super Sticker" to mapOf("zh-TW" to "超級貼圖", "en" to "Super Sticker", "ja" to "スーパーステッカー"),
@@ -662,6 +714,7 @@ fun getLabel(key: String, lang: String): String {
         "Normal Message Color" to mapOf("zh-TW" to "一般留言文字顏色", "en" to "Normal Message Color", "ja" to "通常メッセージの文字色"),
         "Twitch Notice Color" to mapOf("zh-TW" to "Twitch 通知文字顏色", "en" to "Twitch Notice Color", "ja" to "Twitch通知の文字色"),
         "YouTube Notice Color" to mapOf("zh-TW" to "YouTube 通知文字顏色", "en" to "YouTube Notice Color", "ja" to "YouTube通知の文字色"),
+        "Kick Notice Color" to mapOf("zh-TW" to "Kick 通知文字顏色", "en" to "Kick Notice Color", "ja" to "Kick通知の文字色"),
     )
     return labels[key]?.get(lang) ?: key
 }

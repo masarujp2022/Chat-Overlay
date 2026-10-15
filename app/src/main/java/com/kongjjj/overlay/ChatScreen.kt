@@ -42,6 +42,9 @@ import androidx.core.graphics.toColorInt
 import coil.ImageLoader
 import coil.compose.AsyncImage
 import coil.decode.GifDecoder
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 val TiffanyBlue = Color(0xFF0ABAB5)
 
@@ -49,6 +52,7 @@ val TiffanyBlue = Color(0xFF0ABAB5)
 fun ChatScreen(
     twitchChannel: String,
     youtubeChannelId: String,
+    kickChannel: String = "",
     chatMessages: List<ChatMessage>,
     chatConnected: Boolean,
     thirdPartyEmotes: Map<String, String>,
@@ -66,6 +70,7 @@ fun ChatScreen(
     streamCategory: String = "",
     viewersCount: Int = 0,
     youtubeViewersCount: Int = 0,
+    kickViewersCount: Int = 0,
     uptimeText: String = "",
     backgroundColor: String = "transparent",
     textShadow: Boolean = DEFAULT_TEXT_SHADOW,
@@ -75,6 +80,7 @@ fun ChatScreen(
     normalMessageColor: String = DEFAULT_NORMAL_MESSAGE_COLOR,
     twitchNoticeColor: String = DEFAULT_TWITCH_NOTICE_COLOR,
     youtubeNoticeColor: String = DEFAULT_YOUTUBE_NOTICE_COLOR,
+    kickNoticeColor: String = DEFAULT_KICK_NOTICE_COLOR,
     showChrome: Boolean = true,
     openLinksInBrowser: Boolean = true,
     onResetHideTimer: (() -> Unit)? = null,
@@ -86,8 +92,8 @@ fun ChatScreen(
     var forceScrollToBottom by remember { mutableStateOf(false) }
 
     // Auto-connect when a channel is configured
-    LaunchedEffect(twitchChannel, youtubeChannelId) {
-        if (twitchChannel.isNotEmpty() || youtubeChannelId.isNotEmpty()) onConnect()
+    LaunchedEffect(twitchChannel, youtubeChannelId, kickChannel) {
+        if (twitchChannel.isNotEmpty() || youtubeChannelId.isNotEmpty() || kickChannel.isNotEmpty()) onConnect()
     }
 
     // Snap to bottom when connection is established/restored
@@ -136,7 +142,7 @@ fun ChatScreen(
     Column(modifier = Modifier.fillMaxSize()) {
 
         // ── Status row ────────────────────────────────────────────────────────
-        if (showChrome && (twitchChannel.isNotEmpty() || youtubeChannelId.isNotEmpty())) {
+        if (showChrome && (twitchChannel.isNotEmpty() || youtubeChannelId.isNotEmpty() || kickChannel.isNotEmpty())) {
             Surface(tonalElevation = 2.dp, color = Color.Transparent) {
                 Row(
                     modifier = Modifier
@@ -192,6 +198,26 @@ fun ChatScreen(
                                 )
                             }
                         }
+                        if (kickChannel.isNotEmpty()) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .background(
+                                            color = if (chatConnected) Color(0xFF53FC18) else Color(0xFF9E9E9E),
+                                            shape = CircleShape
+                                        )
+                                )
+                                Text(
+                                    text = "Kick: #$kickChannel",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
                     }
 
                     if (!chatConnected) {
@@ -207,7 +233,7 @@ fun ChatScreen(
 
         // ── Stream Info (Persistently visible if enabled, below divider) ──────
         val hasStreamTitleInfo = showStreamTitle && (streamTitle.isNotEmpty() || streamCategory.isNotEmpty())
-        val hasViewersUptimeInfo = youtubeViewersCount > 0 || viewersCount > 0 || uptimeText.isNotEmpty()
+        val hasViewersUptimeInfo = youtubeViewersCount > 0 || viewersCount > 0 || kickViewersCount > 0 || uptimeText.isNotEmpty()
         if (showStreamInfo && (hasStreamTitleInfo || hasViewersUptimeInfo)) {
             val contentColor = if (backgroundColor == "white") Color.Black else Color.White
             Column(
@@ -313,6 +339,31 @@ fun ChatScreen(
                                 )
                             }
                         }
+                        if (kickViewersCount > 0) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Person,
+                                    contentDescription = "Kick Viewers",
+                                    tint = Color(0xFF53FC18), // Kick Green
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Text(
+                                    text = kickViewersCount.toString(),
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        shadow = if (textShadow && backgroundColor != "white") Shadow(
+                                            color = Color.Black,
+                                            offset = Offset(shadowOffsetX, shadowOffsetY),
+                                            blurRadius = shadowRadius
+                                        ) else null
+                                    ),
+                                    color = contentColor,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
                         if (uptimeText.isNotEmpty()) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
@@ -344,13 +395,13 @@ fun ChatScreen(
         }
 
         // ── Messages / empty states ───────────────────────────────────────────
-        if (twitchChannel.isEmpty() && youtubeChannelId.isEmpty()) {
+        if (twitchChannel.isEmpty() && youtubeChannelId.isEmpty() && kickChannel.isEmpty()) {
             Box(
                 modifier = Modifier.fillMaxSize().padding(32.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "Tap the StudioBridge title above to open Settings and enter your Twitch channel or YouTube Channel ID.",
+                    text = "Tap the StudioBridge title above to open Settings and enter your Twitch channel, YouTube Channel ID, or Kick Channel.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
@@ -389,6 +440,7 @@ fun ChatScreen(
                         normalMessageColor = normalMessageColor,
                         twitchNoticeColor = twitchNoticeColor,
                         youtubeNoticeColor = youtubeNoticeColor,
+                        kickNoticeColor = kickNoticeColor,
                         backgroundColor = backgroundColor,
                         openLinksInBrowser = openLinksInBrowser,
                         onResetHideTimer = onResetHideTimer,
@@ -419,6 +471,7 @@ private fun ChatMessageRow(
     normalMessageColor: String = DEFAULT_NORMAL_MESSAGE_COLOR,
     twitchNoticeColor: String = DEFAULT_TWITCH_NOTICE_COLOR,
     youtubeNoticeColor: String = DEFAULT_YOUTUBE_NOTICE_COLOR,
+    kickNoticeColor: String = DEFAULT_KICK_NOTICE_COLOR,
     backgroundColor: String = "transparent",
     openLinksInBrowser: Boolean = true,
     onResetHideTimer: (() -> Unit)? = null,
@@ -444,6 +497,13 @@ private fun ChatMessageRow(
                 tag == "yt-MODERATOR" -> "local:ic_youtubemod"
                 tag == "yt-OWNER" -> "https://www.gstatic.com/youtube/img/live_chat/badges/owner_active.png"
                 tag == "yt-VERIFIED" -> "https://www.gstatic.com/youtube/img/live_chat/badges/verified_active.png"
+                tag == "kick-broadcaster" -> "https://kick.com/assets/images/badges/broadcaster.svg"
+                tag == "kick-moderator" -> "https://kick.com/assets/images/badges/moderator.svg"
+                tag == "kick-vip" -> "https://kick.com/assets/images/badges/vip.svg"
+                tag == "kick-subscriber" -> "https://kick.com/assets/images/badges/subscriber.svg"
+                tag == "kick-verified" -> "https://kick.com/assets/images/badges/verified.svg"
+                tag == "kick-founder" -> "https://kick.com/assets/images/badges/founder.svg"
+                tag == "kick-og" -> "https://kick.com/assets/images/badges/og.svg"
                 else -> twitchBadges[tag] ?: twitchBadges["${tag.substringBefore('/')}/0"] ?: ""
             }
         }.filter { it.isNotEmpty() }
@@ -519,8 +579,8 @@ private fun ChatMessageRow(
 
     val timestampText = remember(message.timestamp, showTimestamp) {
         if (showTimestamp && message.timestamp != null) {
-            val date = java.util.Date(message.timestamp)
-            val sdf = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
+            val date = Date(message.timestamp)
+            val sdf = SimpleDateFormat("HH:mm", Locale.getDefault())
             sdf.format(date) + " "
         } else ""
     }
@@ -532,7 +592,11 @@ private fun ChatMessageRow(
             put("platform_icon", InlineTextContent(
                 Placeholder(badgeSize, badgeSize, PlaceholderVerticalAlign.TextCenter)
             ) {
-                val iconRes = if (message.platform == "youtube") R.drawable.ic_youtube else R.drawable.ic_twitch
+                val iconRes = when (message.platform) {
+                    "youtube" -> R.drawable.ic_youtube
+                    "kick" -> R.drawable.ic_kick
+                    else -> R.drawable.ic_twitch
+                }
                 AsyncImage(model = iconRes, contentDescription = message.platform,
                     imageLoader = imageLoader, modifier = Modifier.fillMaxSize())
             })
@@ -577,7 +641,7 @@ private fun ChatMessageRow(
 
     val rowTextColor = if (backgroundColor == "white") Color.Black else Color.White
 
-    val annotatedText = remember(message.id, thirdPartyEmotes.size, twitchBadges.size, nameColor, usernameSize, timestampText, appLanguage, backgroundColor, localizedMessageText, normalMessageColor, twitchNoticeColor, youtubeNoticeColor) {
+    val annotatedText = remember(message.id, thirdPartyEmotes.size, twitchBadges.size, nameColor, usernameSize, timestampText, appLanguage, backgroundColor, localizedMessageText, normalMessageColor, twitchNoticeColor, youtubeNoticeColor, kickNoticeColor) {
         buildAnnotatedString {
             if (timestampText.isNotEmpty()) {
                 val timestampColor = if (backgroundColor == "white") Color.DarkGray.copy(alpha = 0.8f) else Color.LightGray.copy(alpha = 0.8f)
@@ -630,6 +694,8 @@ private fun ChatMessageRow(
                     val localizedMsg = if (isSuperChatOrMembership) actualSystemMsg else getLocalizedTwitchSystemMessage(message, appLanguage)
                     val headerColor = if (isSuperChatOrMembership) {
                         if (backgroundColor == "white") Color(0xFFD32F2F) else Color(0xFFFF5252)
+                    } else if (message.platform == "kick") {
+                        parseColor(kickNoticeColor, Color(0xFF53FC18))
                     } else {
                         parseColor(twitchNoticeColor, Color(0xFFFF8C00))
                     }
@@ -644,13 +710,13 @@ private fun ChatMessageRow(
 
                 // Show the standard "User: Message" part
                 if (showLine2) {
-                    if (message.platform == "youtube" || message.platform == "twitch") {
+                    if (message.platform == "youtube" || message.platform == "twitch" || message.platform == "kick") {
                         appendInlineContent("platform_icon", "[${message.platform}]")
                         append(' ')
                     }
 
-                    // Twitch: badges BEFORE name
-                    if (message.platform == "twitch") {
+                    // Twitch & Kick: badges BEFORE name
+                    if (message.platform == "twitch" || message.platform == "kick") {
                         badgeUrls.forEachIndexed { i, url ->
                             appendInlineContent(url, "[badge]")
                             if (i < badgeUrls.lastIndex) append('\u2009') else append(' ')
@@ -845,7 +911,7 @@ private fun getLocalizedYouTubeHeader(message: ChatMessage, lang: String): Strin
     val superStickerLabel = when (lang) {
         "en" -> "Super Sticker"
         "ja" -> "スーパーステッカー"
-        else -> "Super Sticker"
+        else -> "SuperSticker"
     }
 
     if (isMembership) {

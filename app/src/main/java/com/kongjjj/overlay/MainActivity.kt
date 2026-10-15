@@ -1,6 +1,7 @@
 package com.kongjjj.overlay
 
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
@@ -57,6 +58,7 @@ class MainActivity : ComponentActivity() {
                 
                 val twitchChannel by chatManager.twitchChannel.collectAsState()
                 val youtubeChannelId by chatManager.youtubeChannelId.collectAsState()
+                val kickChannel by chatManager.kickChannel.collectAsState()
                 val fontSize by chatManager.chatFontSize.collectAsState()
                 val lineSpacing by chatManager.chatLineSpacing.collectAsState()
                 val emoteSize by chatManager.chatEmoteSize.collectAsState()
@@ -85,7 +87,7 @@ class MainActivity : ComponentActivity() {
                 val packageInfo = remember {
                     try {
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                            context.packageManager.getPackageInfo(context.packageName, android.content.pm.PackageManager.PackageInfoFlags.of(0))
+                            context.packageManager.getPackageInfo(context.packageName, PackageManager.PackageInfoFlags.of(0))
                         } else {
                             @Suppress("DEPRECATION")
                             context.packageManager.getPackageInfo(context.packageName, 0)
@@ -217,6 +219,7 @@ class MainActivity : ComponentActivity() {
                         SettingsDialog(
                             twitchChannel = twitchChannel,
                             youtubeChannelId = youtubeChannelId,
+                            kickChannel = kickChannel,
                             chatFontSize = fontSize,
                             chatLineSpacing = lineSpacing,
                             chatEmoteSize = emoteSize,
@@ -239,6 +242,7 @@ class MainActivity : ComponentActivity() {
                             normalMessageColor = chatManager.normalMessageColor.collectAsState().value,
                             twitchNoticeColor = chatManager.twitchNoticeColor.collectAsState().value,
                             youtubeNoticeColor = chatManager.youtubeNoticeColor.collectAsState().value,
+                            kickNoticeColor = chatManager.kickNoticeColor.collectAsState().value,
                             ttsEnabled = ttsEnabled,
                             ttsLanguage = ttsLanguage,
                             ttsIgnoreSender = ttsIgnoreSender,
@@ -247,6 +251,7 @@ class MainActivity : ComponentActivity() {
                             ttsOnlySubOrCheer = ttsOnlySubOrCheer,
                             onSaveChannel = { chatManager.saveTwitchChannel(it, this@MainActivity) },
                             onSaveYoutubeChannelId = { chatManager.saveYoutubeChannelId(it, this@MainActivity) },
+                            onSaveKickChannel = { chatManager.saveKickChannel(it, this@MainActivity) },
                             onFontSizeChange = { chatManager.saveFontSize(it, this@MainActivity) },
                             onLineSpacingChange = { chatManager.saveLineSpacing(it, this@MainActivity) },
                             onEmoteSizeChange = { chatManager.saveEmoteSize(it, this@MainActivity) },
@@ -259,6 +264,7 @@ class MainActivity : ComponentActivity() {
                             onNormalMessageColorChange = { chatManager.saveNormalMessageColor(it, this@MainActivity) },
                             onTwitchNoticeColorChange = { chatManager.saveTwitchNoticeColor(it, this@MainActivity) },
                             onYoutubeNoticeColorChange = { chatManager.saveYoutubeNoticeColor(it, this@MainActivity) },
+                            onKickNoticeColorChange = { chatManager.saveKickNoticeColor(it, this@MainActivity) },
                             onShowTimestampChange = { chatManager.saveShowTimestamp(it, this@MainActivity) },
                             onShowStreamInfoChange = { chatManager.saveShowStreamInfo(it, this@MainActivity) },
                             onShowStreamTitleChange = { chatManager.saveShowStreamTitle(it, this@MainActivity) },

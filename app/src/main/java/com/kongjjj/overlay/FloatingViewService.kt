@@ -196,18 +196,21 @@ class FloatingViewService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                 ChatOverlayTheme {
                     val twitchChannel by chatManager.twitchChannel.collectAsState()
                     val youtubeChannelId by chatManager.youtubeChannelId.collectAsState()
+                    val kickChannel by chatManager.kickChannel.collectAsState()
                     
                     val twitchMessages by chatManager.twitchClient.messages.collectAsState()
                     val youtubeMessages by chatManager.youtubeClient.messages.collectAsState()
+                    val kickMessages by chatManager.kickClient.messages.collectAsState()
                     val systemMessages by chatManager.systemMessages.collectAsState()
                     
-                    val chatMessages = remember(twitchChannel, youtubeChannelId, twitchMessages, youtubeMessages, systemMessages) {
-                        (twitchMessages + youtubeMessages + systemMessages).sortedBy { it.timestamp ?: 0L }.takeLast(MAX_CHAT_MESSAGES)
+                    val chatMessages = remember(twitchChannel, youtubeChannelId, kickChannel, twitchMessages, youtubeMessages, kickMessages, systemMessages) {
+                        (twitchMessages + youtubeMessages + kickMessages + systemMessages).sortedBy { it.timestamp ?: 0L }.takeLast(MAX_CHAT_MESSAGES)
                     }
 
                     val twitchConnected by chatManager.twitchClient.connected.collectAsState()
                     val youtubeConnected by chatManager.youtubeClient.connected.collectAsState()
-                    val chatConnected = twitchConnected || youtubeConnected
+                    val kickConnected by chatManager.kickClient.connected.collectAsState()
+                    val chatConnected = twitchConnected || youtubeConnected || kickConnected
 
                     val thirdPartyEmotes by chatManager.emoteRepository.thirdPartyEmotes.collectAsState()
                     val twitchBadges by chatManager.emoteRepository.twitchBadges.collectAsState()
@@ -225,6 +228,7 @@ class FloatingViewService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                     val normalMessageColor by chatManager.normalMessageColor.collectAsState()
                     val twitchNoticeColor by chatManager.twitchNoticeColor.collectAsState()
                     val youtubeNoticeColor by chatManager.youtubeNoticeColor.collectAsState()
+                    val kickNoticeColor by chatManager.kickNoticeColor.collectAsState()
                     val backgroundColor by chatManager.backgroundColor.collectAsState()
                     val appLanguage by chatManager.appLanguage.collectAsState()
                     val isVisible by uiVisible
@@ -236,6 +240,7 @@ class FloatingViewService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                     val openLinksInBrowser by chatManager.openLinksInBrowser.collectAsState()
                     val viewersCount by chatManager.viewersCount.collectAsState()
                     val youtubeViewersCount by chatManager.youtubeViewersCount.collectAsState()
+                    val kickViewersCount by chatManager.kickViewersCount.collectAsState()
                     val uptimeText by chatManager.uptimeText.collectAsState()
                     
                     Box(
@@ -260,6 +265,7 @@ class FloatingViewService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                         ChatScreen(
                             twitchChannel = twitchChannel,
                             youtubeChannelId = youtubeChannelId,
+                            kickChannel = kickChannel,
                             chatMessages = chatMessages,
                             chatConnected = chatConnected,
                             thirdPartyEmotes = thirdPartyEmotes,
@@ -278,6 +284,7 @@ class FloatingViewService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                             normalMessageColor = normalMessageColor,
                             twitchNoticeColor = twitchNoticeColor,
                             youtubeNoticeColor = youtubeNoticeColor,
+                            kickNoticeColor = kickNoticeColor,
                             backgroundColor = backgroundColor,
                             showChrome = isVisible,
                             showStreamInfo = showStreamInfo,
@@ -286,6 +293,7 @@ class FloatingViewService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                             streamCategory = streamCategory,
                             viewersCount = viewersCount,
                             youtubeViewersCount = youtubeViewersCount,
+                            kickViewersCount = kickViewersCount,
                             uptimeText = uptimeText,
                             openLinksInBrowser = openLinksInBrowser,
                             onResetHideTimer = { resetHideTimer() },

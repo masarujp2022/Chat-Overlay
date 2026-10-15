@@ -3,6 +3,8 @@ package com.kongjjj.overlay
 import android.content.Context
 import android.util.Log
 import androidx.core.content.edit
+import coil.Coil
+import coil.annotation.ExperimentalCoilApi
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -23,6 +25,7 @@ import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
+import java.util.UUID
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
@@ -31,12 +34,14 @@ class ChatManager private constructor(context: Context) {
     
     val twitchClient = TwitchChatClient()
     val youtubeClient = YouTubeChatClient()
+    val kickClient = KickChatClient()
     val emoteRepository = EmoteRepository()
     val ttsManager = TtsManager(context.applicationContext)
     
     // Settings state
     val twitchChannel = MutableStateFlow("")
     val youtubeChannelId = MutableStateFlow("")
+    val kickChannel = MutableStateFlow("")
     val chatFontSize = MutableStateFlow(DEFAULT_FONT_SIZE)
     val chatLineSpacing = MutableStateFlow(DEFAULT_LINE_SPACING)
     val chatEmoteSize = MutableStateFlow(DEFAULT_EMOTE_SIZE)
@@ -59,10 +64,12 @@ class ChatManager private constructor(context: Context) {
     val normalMessageColor = MutableStateFlow(DEFAULT_NORMAL_MESSAGE_COLOR)
     val twitchNoticeColor = MutableStateFlow(DEFAULT_TWITCH_NOTICE_COLOR)
     val youtubeNoticeColor = MutableStateFlow(DEFAULT_YOUTUBE_NOTICE_COLOR)
+    val kickNoticeColor = MutableStateFlow(DEFAULT_KICK_NOTICE_COLOR)
 
     // Stream Info state
     val viewersCount = MutableStateFlow(0)
     val youtubeViewersCount = MutableStateFlow(0)
+    val kickViewersCount = MutableStateFlow(0)
     val streamTitle = MutableStateFlow("")
     val streamCategory = MutableStateFlow("")
     val streamStartTime = MutableStateFlow<Long?> (null)
@@ -70,6 +77,7 @@ class ChatManager private constructor(context: Context) {
 
     private var viewerUpdateJob: Job? = null
     private var youtubeViewerUpdateJob: Job? = null
+    private var kickViewerUpdateJob: Job? = null
     private var cachedYoutubeVideoId: String? = null
     private var uptimeUpdateJob: Job? = null
     private val httpClient = OkHttpClient()
@@ -98,9 +106,13 @@ class ChatManager private constructor(context: Context) {
         youtubeClient.onReconnect = {
             addSystemMessage(context.getString(R.string.reconnecting_youtube), "reconnecting_youtube")
         }
+        kickClient.onReconnect = {
+            addSystemMessage(context.getString(R.string.reconnecting_kick), "reconnecting_kick")
+        }
 
         twitchChannel.value = prefs.getString("twitch_channel", "") ?: ""
         youtubeChannelId.value = prefs.getString("youtube_channel_id", "") ?: ""
+        kickChannel.value = prefs.getString("kick_channel", "") ?: ""
         chatFontSize.value = prefs.getFloat("chat_font_size", DEFAULT_FONT_SIZE)
         chatLineSpacing.value = prefs.getFloat("chat_line_spacing", DEFAULT_LINE_SPACING)
         chatEmoteSize.value = prefs.getFloat("chat_emote_size", DEFAULT_EMOTE_SIZE)
@@ -123,6 +135,7 @@ class ChatManager private constructor(context: Context) {
         normalMessageColor.value = prefs.getString("normal_message_color", DEFAULT_NORMAL_MESSAGE_COLOR) ?: DEFAULT_NORMAL_MESSAGE_COLOR
         twitchNoticeColor.value = prefs.getString("twitch_notice_color", DEFAULT_TWITCH_NOTICE_COLOR) ?: DEFAULT_TWITCH_NOTICE_COLOR
         youtubeNoticeColor.value = prefs.getString("youtube_notice_color", DEFAULT_YOUTUBE_NOTICE_COLOR) ?: DEFAULT_YOUTUBE_NOTICE_COLOR
+        kickNoticeColor.value = prefs.getString("kick_notice_color", DEFAULT_KICK_NOTICE_COLOR) ?: DEFAULT_KICK_NOTICE_COLOR
         
         ttsEnabled.value = prefs.getBoolean("tts_enabled", false)
         ttsIgnoreSender.value = prefs.getBoolean("tts_ignore_sender", false)
@@ -145,17 +158,67 @@ class ChatManager private constructor(context: Context) {
                 if (ttsEnabled.value) speakMessage(message)
             }
         }
+        scope.launch {
+            kickClient.newMessages.collect { message ->
+                if (ttsEnabled.value) speakMessage(message)
+            }
+        }
         
         // Load emotes and badges
         scope.launch {
             val channel = twitchChannel.value
             val userId = if (channel.isNotEmpty()) fetchTwitchUserId(channel) else null
-            emoteRepository.loadAll(enable7tv.value, enableBttv.value, enableFfz.value, userId, channel)
+            emoteRepository.loadAll(enable7tv.value, enableBttv.value, enableFfz.value, userId, channel, kickClient.userId)
         }
 
         // Start stream info updates
         startStreamInfoUpdates()
         startYoutubeViewerUpdates()
+        startKickViewerUpdates()
+    }
+
+    private fun startKickViewerUpdates() {
+        kickViewerUpdateJob?.cancel()
+        kickViewerUpdateJob = scope.launch {
+            while (isActive) {
+                val channel = kickChannel.value.trim()
+                if (channel.isNotBlank()) {
+                    var info: KickChannelInfo? = null
+                    try {
+                        info = withTimeout(10.seconds) {
+                            kickClient.resolveChannelInfo(channel)
+                        }
+                    } catch (e: Exception) {
+                        Log.e("ChatManager", "Failed to fetch Kick stream info", e)
+                    }
+
+                    withContext(Dispatchers.Main) {
+                        if (info != null) {
+                            kickViewersCount.value = info.viewersCount
+                            if (streamTitle.value.isBlank() && !info.title.isNullOrBlank()) {
+                                streamTitle.value = info.title
+                            }
+                            if (streamCategory.value.isBlank() && !info.category.isNullOrBlank()) {
+                                streamCategory.value = info.category
+                            }
+                        } else {
+                            kickViewersCount.value = 0
+                        }
+                    }
+                } else {
+                    withContext(Dispatchers.Main) {
+                        kickViewersCount.value = 0
+                    }
+                }
+                delay(15.seconds)
+            }
+        }
+    }
+
+    private fun stopKickViewerUpdates() {
+        kickViewerUpdateJob?.cancel()
+        kickViewerUpdateJob = null
+        kickViewersCount.value = 0
     }
 
     private fun startYoutubeViewerUpdates() {
@@ -514,7 +577,7 @@ class ChatManager private constructor(context: Context) {
         }
 
         val message = ChatMessage(
-            id = java.util.UUID.randomUUID().toString(),
+            id = UUID.randomUUID().toString(),
             username = "System",
             message = text,
             platform = "system",
@@ -544,6 +607,12 @@ class ChatManager private constructor(context: Context) {
         } else {
             youtubeClient.disconnect()
         }
+        if (kickChannel.value.isNotEmpty()) {
+            addSystemMessage(context.getString(R.string.reconnecting_kick), "reconnecting_kick")
+            kickClient.connect(kickChannel.value)
+        } else {
+            kickClient.disconnect()
+        }
     }
 
     fun saveTwitchChannel(channel: String, context: Context) {
@@ -554,12 +623,12 @@ class ChatManager private constructor(context: Context) {
             // Reload badges for the new channel
             scope.launch {
                 val userId = fetchTwitchUserId(channel)
-                emoteRepository.loadAll(enable7tv.value, enableBttv.value, enableFfz.value, userId, channel)
+                emoteRepository.loadAll(enable7tv.value, enableBttv.value, enableFfz.value, userId, channel, kickClient.userId)
             }
         } else {
             twitchClient.disconnect()
             scope.launch {
-                emoteRepository.loadAll(enable7tv.value, enableBttv.value, enableFfz.value, null, null)
+                emoteRepository.loadAll(enable7tv.value, enableBttv.value, enableFfz.value, null, null, kickClient.userId)
             }
         }
     }
@@ -573,6 +642,19 @@ class ChatManager private constructor(context: Context) {
             youtubeClient.connect(channelId)
         } else {
             youtubeClient.disconnect()
+        }
+    }
+
+    fun saveKickChannel(channel: String, context: Context) {
+        kickChannel.value = channel
+        context.getSharedPreferences("OverlayPrefs", Context.MODE_PRIVATE).edit { putString("kick_channel", channel) }
+        startKickViewerUpdates()
+        if (channel.isNotEmpty()) {
+            kickClient.connect(channel)
+            scope.launch { reloadEmotes() }
+        } else {
+            kickClient.disconnect()
+            scope.launch { reloadEmotes() }
         }
     }
 
@@ -719,19 +801,25 @@ class ChatManager private constructor(context: Context) {
         youtubeNoticeColor.value = color
         context.getSharedPreferences("OverlayPrefs", Context.MODE_PRIVATE).edit { putString("youtube_notice_color", color) }
     }
+
+    fun saveKickNoticeColor(color: String, context: Context) {
+        kickNoticeColor.value = color
+        context.getSharedPreferences("OverlayPrefs", Context.MODE_PRIVATE).edit { putString("kick_notice_color", color) }
+    }
     
     private suspend fun reloadEmotes() {
         val channel = twitchChannel.value
         val userId = if (channel.isNotEmpty()) fetchTwitchUserId(channel) else null
-        emoteRepository.loadAll(enable7tv.value, enableBttv.value, enableFfz.value, userId, channel)
+        emoteRepository.loadAll(enable7tv.value, enableBttv.value, enableFfz.value, userId, channel, kickClient.userId)
     }
 
-    @OptIn(coil.annotation.ExperimentalCoilApi::class)
+    @OptIn(ExperimentalCoilApi::class)
     fun clearChatCache(context: Context) {
         twitchClient.clearMessages()
         youtubeClient.clearMessages()
+        kickClient.clearMessages()
         // Clear Coil cache
-        val imageLoader = coil.Coil.imageLoader(context)
+        val imageLoader = Coil.imageLoader(context)
         imageLoader.diskCache?.clear()
         imageLoader.memoryCache?.clear()
     }
@@ -739,9 +827,11 @@ class ChatManager private constructor(context: Context) {
     fun release() {
         stopStreamInfoUpdates()
         stopYoutubeViewerUpdates()
+        stopKickViewerUpdates()
         ttsManager.release()
         twitchClient.clearMessages()
         youtubeClient.clearMessages()
+        kickClient.clearMessages()
         INSTANCE = null
     }
 
