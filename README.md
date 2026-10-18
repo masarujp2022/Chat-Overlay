@@ -4,10 +4,11 @@
 
 <h1>Chat Overlay</h1>
 
-ログイン不要 Android向けの透明なYouTube/Twitchチャットオーバーレイ、ライブ配信で使用するもの。
+ログイン不要 Android向けの透明なYouTube/Twitch/Kickチャットオーバーレイ、ライブ配信で使用するもの。
 <br><br>
 [![Twitch](https://img.shields.io/badge/Twitch-9146FF?style=for-the-badge&logo=twitch&logoColor=white)](https://twitch.tv)
 [![YouTube](https://img.shields.io/badge/YouTube-FF0000?style=for-the-badge&logo=youtube&logoColor=white)](https://youtube.com)
+[![Kick](https://img.shields.io/badge/Kick-00E701?style=for-the-badge&logo=kick&logoColor=white)](https://kick.com/)
 [![Android](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://)
 ![GitHub top language](https://img.shields.io/github/languages/top/masarujp2022/Chat-Overlay?&style=for-the-badge)
 [![Release](https://img.shields.io/github/release/masarujp2022/Chat-Overlay?color=0000FF&label=Release&style=for-the-badge)](https://github.com/masarujp2022/Chat-Overlay/releases/latest)
@@ -20,7 +21,7 @@
 
 ## 機能
 
-- ✔️ Twitch、YouTubeのチャットルームを表示。
+- ✔️ Twitch、YouTube、Kickのチャットルームを表示。
 - ✔️ Text-to-Speechによるチャットメッセージの読み上げ。
 - ✔️ 3つの言語から選択可能：繁体字中国語、英語、日本語。
 - ✔️ 文字サイズ、行間、ユーザー名、絵文字のサイズを個別に調整可能。
@@ -30,6 +31,7 @@
 - ✔️ Twitch チャンネルアナウンス、視聴ストリーク、サブスク、レイド、その他の特殊メッセージの表示。
 - ✔️ YouTube の Super Chat、Super Sticker、メンバーシップ加入の通知表示を追加。
 - ✔️ YouTube の視聴者数表示。
+- ✔️ Kick の視聴者数表示。
   
 ![Chat-Overlay](pics/Screenshot_7J.jpg)
 

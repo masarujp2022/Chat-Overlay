@@ -4,10 +4,11 @@
 
 <h1>Chat Overlay</h1>
 
-一個不用登錄的Android透明 Youtube/Twitch聊天室overlay給直播使用。
+一個不用登錄的Android透明 Youtube/Twitch/Kick聊天室overlay給直播使用。
 <br><br>
 [![Twitch](https://img.shields.io/badge/Twitch-9146FF?style=for-the-badge&logo=twitch&logoColor=white)](https://twitch.tv)
 [![YouTube](https://img.shields.io/badge/YouTube-FF0000?style=for-the-badge&logo=youtube&logoColor=white)](https://youtube.com)
+[![Kick](https://img.shields.io/badge/Kick-00E701?style=for-the-badge&logo=kick&logoColor=white)](https://kick.com/)
 [![Android](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/kongjjj/Chat-Overlay)
 ![GitHub top language](https://img.shields.io/github/languages/top/masarujp2022/Chat-Overlay?&style=for-the-badge)
 [![Release](https://img.shields.io/github/release/masarujp2022/Chat-Overlay?color=0000FF&label=Release&style=for-the-badge)](https://github.com/masarujp2022/Chat-Overlay/releases/latest)
@@ -20,8 +21,8 @@
 
 ## 功能
 
-- ✔️ Twitch、Youtube聊天室顯示。
-- ✔️ Text-to-Speech聊天訊息朗讀，聊天中的超連結可按下彈出瀏覽器開啟。
+- ✔️ Twitch、Youtube、Kick 聊天室顯示。
+- ✔️ Text-to-Speech 聊天訊息朗讀，聊天中的超連結可按下彈出瀏覽器開啟。
 - ✔️ 3種語言選擇，繁體中文、英文、日文。
 - ✔️ 文字大小、陰影、行距、人名、表情符號大小可各自調較。
 - ✔️ 透明聊天方塊可任意移動和調整大小。
@@ -30,6 +31,7 @@
 - ✔️ Twitch 頻道公告、連續觀看紀錄、訂閱、揪團及其他特殊訊息顯示。
 - ✔️ Youtube Superchat、Super Sticker、加入會員 通知顯示。
 - ✔️ Youtube 觀看人數顯示。
+- ✔️ Kick 觀看人數顯示。
   
 ![Chat-Overlay](pics/Screenshot_7C.jpg)
 
