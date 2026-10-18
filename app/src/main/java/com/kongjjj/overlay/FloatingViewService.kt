@@ -63,9 +63,22 @@ class FloatingViewService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     private var savedHeight = 0
     private var isCollapsed = false
     private val uiVisible = mutableStateOf(value = true)
+    private val showSettingsOverlay = mutableStateOf(value = false)
     private var isFirstStart = true
     private var hideJob: Job? = null
     private val serviceScope = MainScope()
+
+    private fun enableWindowFocus(enable: Boolean) {
+        if (!::params.isInitialized || !::floatingView.isInitialized) return
+        if (enable) {
+            params.flags = params.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
+        } else {
+            params.flags = params.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+        }
+        try {
+            windowManager.updateViewLayout(floatingView, params)
+        } catch (_: Exception) {}
+    }
 
     private fun startHideTimer() {
         hideJob?.cancel()
@@ -220,6 +233,9 @@ class FloatingViewService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                     val emoteSize by chatManager.chatEmoteSize.collectAsState()
                     val usernameSize by chatManager.chatUsernameSize.collectAsState()
                     val animated by chatManager.animatedEmotes.collectAsState()
+                    val enable7tv by chatManager.enable7tv.collectAsState()
+                    val enableBttv by chatManager.enableBttv.collectAsState()
+                    val enableFfz by chatManager.enableFfz.collectAsState()
                     val showTimestamp by chatManager.showTimestamp.collectAsState()
                     val textShadow by chatManager.textShadow.collectAsState()
                     val shadowRadius by chatManager.shadowRadius.collectAsState()
@@ -238,10 +254,18 @@ class FloatingViewService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                     val streamTitle by chatManager.streamTitle.collectAsState()
                     val streamCategory by chatManager.streamCategory.collectAsState()
                     val openLinksInBrowser by chatManager.openLinksInBrowser.collectAsState()
+                    val keepScreenOn by chatManager.keepScreenOn.collectAsState()
+                    val ttsEnabled by chatManager.ttsEnabled.collectAsState()
+                    val ttsLanguage by chatManager.ttsLanguage.collectAsState()
+                    val ttsIgnoreSender by chatManager.ttsIgnoreSender.collectAsState()
+                    val ttsIgnoreEmoji by chatManager.ttsIgnoreEmoji.collectAsState()
+                    val ttsIgnoreLinks by chatManager.ttsIgnoreLinks.collectAsState()
+                    val ttsOnlySubOrCheer by chatManager.ttsOnlySubOrCheer.collectAsState()
                     val viewersCount by chatManager.viewersCount.collectAsState()
                     val youtubeViewersCount by chatManager.youtubeViewersCount.collectAsState()
                     val kickViewersCount by chatManager.kickViewersCount.collectAsState()
                     val uptimeText by chatManager.uptimeText.collectAsState()
+                    val showSettings by showSettingsOverlay
                     
                     Box(
                         modifier = Modifier
@@ -304,6 +328,79 @@ class FloatingViewService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                         ) {
                             chatManager.connect(this@FloatingViewService)
                         }
+
+                        if (showSettings) {
+                            SettingsDialogView(
+                                twitchChannel = twitchChannel,
+                                youtubeChannelId = youtubeChannelId,
+                                kickChannel = kickChannel,
+                                chatFontSize = fontSize,
+                                chatLineSpacing = lineSpacing,
+                                chatEmoteSize = emoteSize,
+                                chatUsernameSize = usernameSize,
+                                animatedEmotes = animated,
+                                enable7tv = enable7tv,
+                                enableBttv = enableBttv,
+                                enableFfz = enableFfz,
+                                backgroundColor = backgroundColor,
+                                appLanguage = appLanguage,
+                                showTimestamp = showTimestamp,
+                                showStreamInfo = showStreamInfo,
+                                showStreamTitle = showStreamTitle,
+                                openLinksInBrowser = openLinksInBrowser,
+                                keepScreenOn = keepScreenOn,
+                                textShadow = textShadow,
+                                shadowRadius = shadowRadius,
+                                shadowOffsetX = shadowOffsetX,
+                                shadowOffsetY = shadowOffsetY,
+                                normalMessageColor = normalMessageColor,
+                                twitchNoticeColor = twitchNoticeColor,
+                                youtubeNoticeColor = youtubeNoticeColor,
+                                kickNoticeColor = kickNoticeColor,
+                                ttsEnabled = ttsEnabled,
+                                ttsLanguage = ttsLanguage,
+                                ttsIgnoreSender = ttsIgnoreSender,
+                                ttsIgnoreEmoji = ttsIgnoreEmoji,
+                                ttsIgnoreLinks = ttsIgnoreLinks,
+                                ttsOnlySubOrCheer = ttsOnlySubOrCheer,
+                                onSaveChannel = { chatManager.saveTwitchChannel(it, this@FloatingViewService) },
+                                onSaveYoutubeChannelId = { chatManager.saveYoutubeChannelId(it, this@FloatingViewService) },
+                                onSaveKickChannel = { chatManager.saveKickChannel(it, this@FloatingViewService) },
+                                onFontSizeChange = { chatManager.saveFontSize(it, this@FloatingViewService) },
+                                onLineSpacingChange = { chatManager.saveLineSpacing(it, this@FloatingViewService) },
+                                onEmoteSizeChange = { chatManager.saveEmoteSize(it, this@FloatingViewService) },
+                                onUsernameSizeChange = { chatManager.saveUsernameSize(it, this@FloatingViewService) },
+                                onAnimatedEmotesChange = { chatManager.saveAnimatedEmotes(it, this@FloatingViewService) },
+                                onEnable7tvChange = { chatManager.saveEnable7tv(it, this@FloatingViewService) },
+                                onEnableBttvChange = { chatManager.saveEnableBttv(it, this@FloatingViewService) },
+                                onEnableFfzChange = { chatManager.saveEnableFfz(it, this@FloatingViewService) },
+                                onBackgroundColorChange = { chatManager.saveBackgroundColor(it, this@FloatingViewService) },
+                                onNormalMessageColorChange = { chatManager.saveNormalMessageColor(it, this@FloatingViewService) },
+                                onTwitchNoticeColorChange = { chatManager.saveTwitchNoticeColor(it, this@FloatingViewService) },
+                                onYoutubeNoticeColorChange = { chatManager.saveYoutubeNoticeColor(it, this@FloatingViewService) },
+                                onKickNoticeColorChange = { chatManager.saveKickNoticeColor(it, this@FloatingViewService) },
+                                onShowTimestampChange = { chatManager.saveShowTimestamp(it, this@FloatingViewService) },
+                                onShowStreamInfoChange = { chatManager.saveShowStreamInfo(it, this@FloatingViewService) },
+                                onShowStreamTitleChange = { chatManager.saveShowStreamTitle(it, this@FloatingViewService) },
+                                onOpenLinksInBrowserChange = { chatManager.saveOpenLinksInBrowser(it, this@FloatingViewService) },
+                                onKeepScreenOnChange = { chatManager.saveKeepScreenOn(it, this@FloatingViewService) },
+                                onTextShadowChange = { chatManager.saveTextShadow(it, this@FloatingViewService) },
+                                onShadowRadiusChange = { chatManager.saveShadowRadius(it, this@FloatingViewService) },
+                                onShadowOffsetXChange = { chatManager.saveShadowOffsetX(it, this@FloatingViewService) },
+                                onShadowOffsetYChange = { chatManager.saveShadowOffsetY(it, this@FloatingViewService) },
+                                onTtsEnabledChange = { chatManager.saveTtsEnabled(it, this@FloatingViewService) },
+                                onTtsLanguageChange = { chatManager.saveTtsLanguage(it, this@FloatingViewService) },
+                                onTtsIgnoreSenderChange = { chatManager.saveTtsIgnoreSender(it, this@FloatingViewService) },
+                                onTtsIgnoreEmojiChange = { chatManager.saveTtsIgnoreEmoji(it, this@FloatingViewService) },
+                                onTtsIgnoreLinksChange = { chatManager.saveTtsIgnoreLinks(it, this@FloatingViewService) },
+                                onTtsOnlySubOrCheerChange = { chatManager.saveTtsOnlySubOrCheer(it, this@FloatingViewService) },
+                                onDismiss = {
+                                    showSettingsOverlay.value = false
+                                    enableWindowFocus(false)
+                                    resetHideTimer()
+                                }
+                            )
+                        }
                     }
                 }
             }
@@ -324,10 +421,17 @@ class FloatingViewService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         val mainContentContainer = floatingView.findViewById<View>(R.id.main_content_container)
         val resizeHandle = floatingView.findViewById<View>(R.id.resize_handle)
         val btnReconnect = floatingView.findViewById<View>(R.id.btn_reconnect)
+        val btnSettings = floatingView.findViewById<View>(R.id.btn_settings)
 
         btnReconnect.setOnClickListener {
             resetHideTimer()
             chatManager.connect(this)
+        }
+
+        btnSettings?.setOnClickListener {
+            resetHideTimer()
+            showSettingsOverlay.value = true
+            enableWindowFocus(true)
         }
 
         floatingView.findViewById<View>(R.id.btn_restore).setOnClickListener {

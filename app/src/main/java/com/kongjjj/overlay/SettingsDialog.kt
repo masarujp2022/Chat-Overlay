@@ -97,50 +97,191 @@ fun SettingsDialog(
     onDismiss: () -> Unit
 ) {
     Dialog(onDismissRequest = onDismiss) {
-        Surface(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .fillMaxHeight(0.98f)
-                .clip(RoundedCornerShape(16.dp)),
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 6.dp
         ) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                // Compact Header
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = getLabel("Settings", appLanguage),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.Close, contentDescription = getLabel("Close", appLanguage))
-                    }
-                }
-                
-                HorizontalDivider()
+            SettingsDialogView(
+                twitchChannel = twitchChannel,
+                youtubeChannelId = youtubeChannelId,
+                kickChannel = kickChannel,
+                chatFontSize = chatFontSize,
+                chatLineSpacing = chatLineSpacing,
+                chatEmoteSize = chatEmoteSize,
+                chatUsernameSize = chatUsernameSize,
+                animatedEmotes = animatedEmotes,
+                enable7tv = enable7tv,
+                enableBttv = enableBttv,
+                enableFfz = enableFfz,
+                backgroundColor = backgroundColor,
+                appLanguage = appLanguage,
+                showTimestamp = showTimestamp,
+                showStreamInfo = showStreamInfo,
+                showStreamTitle = showStreamTitle,
+                openLinksInBrowser = openLinksInBrowser,
+                keepScreenOn = keepScreenOn,
+                textShadow = textShadow,
+                shadowRadius = shadowRadius,
+                shadowOffsetX = shadowOffsetX,
+                shadowOffsetY = shadowOffsetY,
+                normalMessageColor = normalMessageColor,
+                twitchNoticeColor = twitchNoticeColor,
+                youtubeNoticeColor = youtubeNoticeColor,
+                kickNoticeColor = kickNoticeColor,
+                ttsEnabled = ttsEnabled,
+                ttsLanguage = ttsLanguage,
+                ttsIgnoreSender = ttsIgnoreSender,
+                ttsIgnoreEmoji = ttsIgnoreEmoji,
+                ttsIgnoreLinks = ttsIgnoreLinks,
+                ttsOnlySubOrCheer = ttsOnlySubOrCheer,
+                onSaveChannel = onSaveChannel,
+                onSaveYoutubeChannelId = onSaveYoutubeChannelId,
+                onSaveKickChannel = onSaveKickChannel,
+                onFontSizeChange = onFontSizeChange,
+                onLineSpacingChange = onLineSpacingChange,
+                onEmoteSizeChange = onEmoteSizeChange,
+                onUsernameSizeChange = onUsernameSizeChange,
+                onAnimatedEmotesChange = onAnimatedEmotesChange,
+                onEnable7tvChange = onEnable7tvChange,
+                onEnableBttvChange = onEnableBttvChange,
+                onEnableFfzChange = onEnableFfzChange,
+                onBackgroundColorChange = onBackgroundColorChange,
+                onNormalMessageColorChange = onNormalMessageColorChange,
+                onTwitchNoticeColorChange = onTwitchNoticeColorChange,
+                onYoutubeNoticeColorChange = onYoutubeNoticeColorChange,
+                onKickNoticeColorChange = onKickNoticeColorChange,
+                onShowTimestampChange = onShowTimestampChange,
+                onShowStreamInfoChange = onShowStreamInfoChange,
+                onShowStreamTitleChange = onShowStreamTitleChange,
+                onOpenLinksInBrowserChange = onOpenLinksInBrowserChange,
+                onKeepScreenOnChange = onKeepScreenOnChange,
+                onTextShadowChange = onTextShadowChange,
+                onShadowRadiusChange = onShadowRadiusChange,
+                onShadowOffsetXChange = onShadowOffsetXChange,
+                onShadowOffsetYChange = onShadowOffsetYChange,
+                onTtsEnabledChange = onTtsEnabledChange,
+                onTtsLanguageChange = onTtsLanguageChange,
+                onTtsIgnoreSenderChange = onTtsIgnoreSenderChange,
+                onTtsIgnoreEmojiChange = onTtsIgnoreEmojiChange,
+                onTtsIgnoreLinksChange = onTtsIgnoreLinksChange,
+                onTtsOnlySubOrCheerChange = onTtsOnlySubOrCheerChange,
+                onDismiss = onDismiss
+            )
+        }
+    }
+}
 
-                // Content
-                Box(modifier = Modifier.weight(1f).padding(horizontal = 16.dp)) {
-                    SettingsContent(
-                        twitchChannel = twitchChannel,
-                        youtubeChannelId = youtubeChannelId,
-                        kickChannel = kickChannel,
-                        chatFontSize = chatFontSize,
-                        chatLineSpacing = chatLineSpacing,
-                        chatEmoteSize = chatEmoteSize,
-                        chatUsernameSize = chatUsernameSize,
-                        animatedEmotes = animatedEmotes,
-                        enable7tv = enable7tv,
-                        enableBttv = enableBttv,
-                        enableFfz = enableFfz,
-                        backgroundColor = backgroundColor,
+@Composable
+fun SettingsDialogView(
+    twitchChannel: String,
+    youtubeChannelId: String,
+    kickChannel: String = "",
+    chatFontSize: Float,
+    chatLineSpacing: Float,
+    chatEmoteSize: Float,
+    chatUsernameSize: Float,
+    animatedEmotes: Boolean,
+    enable7tv: Boolean,
+    enableBttv: Boolean,
+    enableFfz: Boolean,
+    backgroundColor: String,
+    appLanguage: String,
+    showTimestamp: Boolean,
+    showStreamInfo: Boolean,
+    showStreamTitle: Boolean = true,
+    openLinksInBrowser: Boolean = true,
+    keepScreenOn: Boolean,
+    textShadow: Boolean,
+    shadowRadius: Float,
+    shadowOffsetX: Float,
+    shadowOffsetY: Float,
+    normalMessageColor: String = DEFAULT_NORMAL_MESSAGE_COLOR,
+    twitchNoticeColor: String = DEFAULT_TWITCH_NOTICE_COLOR,
+    youtubeNoticeColor: String = DEFAULT_YOUTUBE_NOTICE_COLOR,
+    kickNoticeColor: String = DEFAULT_KICK_NOTICE_COLOR,
+    ttsEnabled: Boolean,
+    ttsLanguage: String,
+    ttsIgnoreSender: Boolean,
+    ttsIgnoreEmoji: Boolean,
+    ttsIgnoreLinks: Boolean,
+    ttsOnlySubOrCheer: Boolean,
+    onSaveChannel: (String) -> Unit,
+    onSaveYoutubeChannelId: (String) -> Unit,
+    onSaveKickChannel: (String) -> Unit = {},
+    onFontSizeChange: (Float) -> Unit,
+    onLineSpacingChange: (Float) -> Unit,
+    onEmoteSizeChange: (Float) -> Unit,
+    onUsernameSizeChange: (Float) -> Unit,
+    onAnimatedEmotesChange: (Boolean) -> Unit,
+    onEnable7tvChange: (Boolean) -> Unit,
+    onEnableBttvChange: (Boolean) -> Unit,
+    onEnableFfzChange: (Boolean) -> Unit,
+    onBackgroundColorChange: (String) -> Unit,
+    onNormalMessageColorChange: (String) -> Unit = {},
+    onTwitchNoticeColorChange: (String) -> Unit = {},
+    onYoutubeNoticeColorChange: (String) -> Unit = {},
+    onKickNoticeColorChange: (String) -> Unit = {},
+    onShowTimestampChange: (Boolean) -> Unit,
+    onShowStreamInfoChange: (Boolean) -> Unit,
+    onShowStreamTitleChange: (Boolean) -> Unit = {},
+    onOpenLinksInBrowserChange: (Boolean) -> Unit = {},
+    onKeepScreenOnChange: (Boolean) -> Unit,
+    onTextShadowChange: (Boolean) -> Unit,
+    onShadowRadiusChange: (Float) -> Unit,
+    onShadowOffsetXChange: (Float) -> Unit,
+    onShadowOffsetYChange: (Float) -> Unit,
+    onTtsEnabledChange: (Boolean) -> Unit,
+    onTtsLanguageChange: (String) -> Unit,
+    onTtsIgnoreSenderChange: (Boolean) -> Unit,
+    onTtsIgnoreEmojiChange: (Boolean) -> Unit,
+    onTtsIgnoreLinksChange: (Boolean) -> Unit,
+    onTtsOnlySubOrCheerChange: (Boolean) -> Unit,
+    onDismiss: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxSize()
+            .clip(RoundedCornerShape(16.dp)),
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 6.dp
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Compact Header
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = getLabel("Settings", appLanguage),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Default.Close, contentDescription = getLabel("Close", appLanguage))
+                }
+            }
+            
+            HorizontalDivider()
+
+            // Content
+            Box(modifier = Modifier.weight(1f).padding(horizontal = 16.dp)) {
+                SettingsContent(
+                    twitchChannel = twitchChannel,
+                    youtubeChannelId = youtubeChannelId,
+                    kickChannel = kickChannel,
+                    chatFontSize = chatFontSize,
+                    chatLineSpacing = chatLineSpacing,
+                    chatEmoteSize = chatEmoteSize,
+                    chatUsernameSize = chatUsernameSize,
+                    animatedEmotes = animatedEmotes,
+                    enable7tv = enable7tv,
+                    enableBttv = enableBttv,
+                    enableFfz = enableFfz,
+                    backgroundColor = backgroundColor,
                         appLanguage = appLanguage,
                         showTimestamp = showTimestamp,
                         showStreamInfo = showStreamInfo,
@@ -197,7 +338,6 @@ fun SettingsDialog(
             }
         }
     }
-}
 
 @Composable
 fun SettingsContent(
