@@ -13,7 +13,7 @@
 <br>
 ![GitHub top language](https://img.shields.io/github/languages/top/masarujp2022/Chat-Overlay?&style=for-the-badge)
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
-[![Release](https://img.shields.io/github/release/masarujp2022/Chat-Overlay?color=0000FF&label=Release&style=for-the-badge)](https://github.com/masarujp2022/Chat-Overlay/releases/latest)
+[![Release](https://img.shields.io/github/release/masarujp2022/Chat-Overlay?color=0000FF&label=Release&style=for-the-badge&logo=android&logoColor=white)](https://github.com/masarujp2022/Chat-Overlay/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/masarujp2022/Chat-Overlay/total?label=Downloads&style=for-the-badge&color=lightgreen)](https://github.com/masarujp2022/Chat-Overlay/releases)
 
 
