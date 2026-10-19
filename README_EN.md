@@ -10,6 +10,7 @@ A no need login Android Transparent Youtube/Twitch/Kick Chat viewer app for IRL 
 [![YouTube](https://img.shields.io/badge/YouTube-FF0000?style=for-the-badge&logo=youtube&logoColor=white)](https://youtube.com)
 [![Kick](https://img.shields.io/badge/Kick-00E701?style=for-the-badge&logo=kick&logoColor=white)](https://kick.com/)
 [![Android](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://)
+[![Last Commit](https://img.shields.io/github/last-commit/masarujp2022/Chat-Overlay?style=for-the-badge)](https://github.com/masarujp2022/Chat-Overlay/commits)
 <br>
 ![GitHub top language](https://img.shields.io/github/languages/top/masarujp2022/Chat-Overlay?&style=for-the-badge)
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
