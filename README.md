@@ -10,6 +10,7 @@
 [![YouTube](https://img.shields.io/badge/YouTube-FF0000?style=for-the-badge&logo=youtube&logoColor=white)](https://youtube.com)
 [![Kick](https://img.shields.io/badge/Kick-00E701?style=for-the-badge&logo=kick&logoColor=white)](https://kick.com/)
 [![Android](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://)
+![GitHub commits since latest release](https://img.shields.io/github/commits-since/masarujp2022/Chat-Overlay/latest?style=for-the-badge)
 [![Last Commit](https://img.shields.io/github/last-commit/masarujp2022/Chat-Overlay?style=for-the-badge)](https://github.com/masarujp2022/Chat-Overlay/commits)
 <br>
 ![GitHub repo size](https://img.shields.io/github/repo-size/masarujp2022/Chat-Overlay?&style=for-the-badge)
